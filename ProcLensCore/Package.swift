@@ -15,7 +15,8 @@ let package = Package(
         ),
         .testTarget(
             name: "ProcLensCoreTests",
-            dependencies: ["ProcLensCore"]
+            dependencies: ["ProcLensCore"],
+            resources: [.copy("Fixtures")]
         ),
     ]
 )

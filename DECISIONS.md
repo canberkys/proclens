@@ -11,6 +11,12 @@ Architecture decisions and code reuse log. Newest first.
 
 ---
 
+### 2026-10-08 — Host collectors: reuse from exelban/stats; logical CPU order is efficiency-first
+- **Decision:** `LiveHostSource` (Mach `host_processor_info`, `host_statistics64`, sysctl), `CPUCollector` and `MemoryCollector` adapt stats' `LoadReader` and `UsageReader`. Core kinds come from `hw.perflevelN`, assigned from the highest level index down: logical CPUs are numbered least-performant first (E cores, then P cores). If the level counts don't sum to the core count, kinds are `.unknown`. Page counts use the kernel page size (16 KiB on Apple Silicon), via `host_page_size`.
+- **Why:** Verified on this Mac (4 Efficiency + 10 Performance, `hw.perflevel0` = Performance): IORegistry `cpu0`-`cpu3` have `cluster-type` E and `cpu4`-`cpu13` P. stats reads the same per-cpu IORegistry order. The mapping uses only public sysctls.
+- **Alternatives considered:** IORegistry `cluster-type` per core (what stats does; more code, same answer); assuming P-first (wrong on this hardware).
+- **Reuse:** exelban/stats · ee4265f3b9afdffebd3273cf6a83b9327ead45b5 · MIT · Modules/CPU/readers.swift (LoadReader.read), Modules/RAM/readers.swift (UsageReader.read) → LiveHostSource.swift, CPUCollector.swift, MemoryCollector.swift · kept only the syscalls and tick/page extraction; dropped Reader/Store/NSLock/hyperthread folding, ran as actors over `HostSource`, cached the host port, handled 32-bit tick wrap.
+
 ### 2026-10-08 — Resolved REUSE_PLAN open decisions D1–D4
 - **Decision:**
   - D1: the Energy column is an approximate score from `rusage_info_v6`, labelled as an approximation.

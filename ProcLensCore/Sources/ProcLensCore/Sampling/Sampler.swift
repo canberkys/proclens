@@ -11,6 +11,7 @@ public actor Sampler {
     private let clock: ContinuousClock
     private let cpu: (any Collector<CPUSample>)?
     private let memory: (any Collector<MemorySample>)?
+    private let processes: (any Collector<ProcessTable>)?
 
     private var interval: SamplingInterval
     private var history: RingBuffer<SystemSnapshot>
@@ -21,11 +22,13 @@ public actor Sampler {
         interval: SamplingInterval = .oneSecond,
         cpu: (any Collector<CPUSample>)? = nil,
         memory: (any Collector<MemorySample>)? = nil,
+        processes: (any Collector<ProcessTable>)? = nil,
         clock: ContinuousClock = .init()
     ) {
         self.interval = interval
         self.cpu = cpu
         self.memory = memory
+        self.processes = processes
         self.clock = clock
         self.history = RingBuffer(capacity: Self.historyCapacity(for: interval))
         let (stream, continuation) = AsyncStream<SystemSnapshot>.makeStream(bufferingPolicy: .bufferingNewest(1))
@@ -73,6 +76,7 @@ public actor Sampler {
         for snapshot in kept.suffix(history.capacity) { history.append(snapshot) }
         await cpu?.reset()
         await memory?.reset()
+        await processes?.reset()
         if wasRunning { start() }
     }
 
@@ -83,7 +87,9 @@ public actor Sampler {
         tick += 1
         async let cpuSample = Self.collect(cpu, tick: n, at: instant)
         async let memorySample = Self.collect(memory, tick: n, at: instant)
-        let snapshot = await SystemSnapshot(tick: n, instant: instant, cpu: cpuSample, memory: memorySample)
+        async let processTable = Self.collect(processes, tick: n, at: instant)
+        let snapshot = await SystemSnapshot(tick: n, instant: instant, cpu: cpuSample, memory: memorySample,
+                                            processes: processTable)
         history.append(snapshot)
         continuation.yield(snapshot)
         return snapshot
