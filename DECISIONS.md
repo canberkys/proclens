@@ -11,6 +11,12 @@ Architecture decisions and code reuse log. Newest first.
 
 ---
 
+### 2026-10-08 — Device collectors: GPU, disk and network from public APIs only
+- **Decision:** `LiveIORegistrySource` reads `IOAccelerator` → `PerformanceStatistics` (`Device Utilization %`, fallback `GPU Activity(%)`) and `IOBlockStorageDriver` → `Statistics` (`Bytes (Read)` / `Bytes (Write)`, id = registry entry ID). `LiveNetworkSource` walks `sysctl NET_RT_IFLIST2` `if_msghdr2` records (64-bit counters). `DiskCollector` and `NetworkCollector` turn counters into bytes/s using the tick `instant`; first sample, new device or a decreasing counter gives zero for that device, loopback is excluded, vanished devices are pruned. `GPUCollector` is a passthrough.
+- **Why:** The aggregate numbers need no DiskArbitration (physical drives, volumes and mounts are not needed for throughput). Per-device zeroing avoids spikes from counter resets or hot-plugged disks and interfaces.
+- **Alternatives considered:** stats' DiskArbitration/`getDeviceIOParent` path (more code, same totals); IOReport and SMC for GPU power/temperature (private, excluded per REUSE_PLAN 1.7); `getifaddrs` (32-bit counters wrap).
+- **Reuse:** exelban/stats · ee4265f3b9afdffebd3273cf6a83b9327ead45b5 · MIT · Modules/GPU/reader.swift (InfoReader.read), Modules/Disk/readers.swift (ActivityReader), Modules/Net/readers.swift (getBytesInfo) → LiveIORegistrySource.swift, LiveNetworkSource.swift, GPUCollector.swift, DiskCollector.swift, NetworkCollector.swift · kept the property keys and the sysctl record walk; dropped IOReport/SMC, DiskArbitration, nettop, CoreWLAN, public IP; added unaligned reads, IOObjectRelease on every object, delta/prune logic.
+
 ### 2026-10-08 — Host collectors: reuse from exelban/stats; logical CPU order is efficiency-first
 - **Decision:** `LiveHostSource` (Mach `host_processor_info`, `host_statistics64`, sysctl), `CPUCollector` and `MemoryCollector` adapt stats' `LoadReader` and `UsageReader`. Core kinds come from `hw.perflevelN`, assigned from the highest level index down: logical CPUs are numbered least-performant first (E cores, then P cores). If the level counts don't sum to the core count, kinds are `.unknown`. Page counts use the kernel page size (16 KiB on Apple Silicon), via `host_page_size`.
 - **Why:** Verified on this Mac (4 Efficiency + 10 Performance, `hw.perflevel0` = Performance): IORegistry `cpu0`-`cpu3` have `cluster-type` E and `cpu4`-`cpu13` P. stats reads the same per-cpu IORegistry order. The mapping uses only public sysctls.

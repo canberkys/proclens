@@ -74,7 +74,7 @@ SOFTWARE.
 ## exelban/stats
 - Source: https://github.com/exelban/stats (commit ee4265f3b9afdffebd3273cf6a83b9327ead45b5)
 - License: MIT
-- Used in: `ProcLensCore/Sources/ProcLensCore/Sources/LiveHostSource.swift`, `ProcLensCore/Sources/ProcLensCore/Collectors/CPUCollector.swift`, `ProcLensCore/Sources/ProcLensCore/Collectors/MemoryCollector.swift`
+- Used in: `ProcLensCore/Sources/ProcLensCore/Sources/LiveHostSource.swift`, `ProcLensCore/Sources/ProcLensCore/Collectors/CPUCollector.swift`, `ProcLensCore/Sources/ProcLensCore/Collectors/MemoryCollector.swift`, `ProcLensCore/Sources/ProcLensCore/Sources/LiveIORegistrySource.swift`, `ProcLensCore/Sources/ProcLensCore/Sources/LiveNetworkSource.swift`, `ProcLensCore/Sources/ProcLensCore/Collectors/GPUCollector.swift`, `ProcLensCore/Sources/ProcLensCore/Collectors/DiskCollector.swift`, `ProcLensCore/Sources/ProcLensCore/Collectors/NetworkCollector.swift`
 
 ```text
 MIT License

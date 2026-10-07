@@ -12,6 +12,9 @@ public actor Sampler {
     private let cpu: (any Collector<CPUSample>)?
     private let memory: (any Collector<MemorySample>)?
     private let processes: (any Collector<ProcessTable>)?
+    private let gpu: (any Collector<GPUSample>)?
+    private let disk: (any Collector<DiskSample>)?
+    private let network: (any Collector<NetworkSample>)?
 
     private var interval: SamplingInterval
     private var history: RingBuffer<SystemSnapshot>
@@ -23,12 +26,18 @@ public actor Sampler {
         cpu: (any Collector<CPUSample>)? = nil,
         memory: (any Collector<MemorySample>)? = nil,
         processes: (any Collector<ProcessTable>)? = nil,
+        gpu: (any Collector<GPUSample>)? = nil,
+        disk: (any Collector<DiskSample>)? = nil,
+        network: (any Collector<NetworkSample>)? = nil,
         clock: ContinuousClock = .init()
     ) {
         self.interval = interval
         self.cpu = cpu
         self.memory = memory
         self.processes = processes
+        self.gpu = gpu
+        self.disk = disk
+        self.network = network
         self.clock = clock
         self.history = RingBuffer(capacity: Self.historyCapacity(for: interval))
         let (stream, continuation) = AsyncStream<SystemSnapshot>.makeStream(bufferingPolicy: .bufferingNewest(1))
@@ -77,6 +86,9 @@ public actor Sampler {
         await cpu?.reset()
         await memory?.reset()
         await processes?.reset()
+        await gpu?.reset()
+        await disk?.reset()
+        await network?.reset()
         if wasRunning { start() }
     }
 
@@ -88,8 +100,12 @@ public actor Sampler {
         async let cpuSample = Self.collect(cpu, tick: n, at: instant)
         async let memorySample = Self.collect(memory, tick: n, at: instant)
         async let processTable = Self.collect(processes, tick: n, at: instant)
+        async let gpuSample = Self.collect(gpu, tick: n, at: instant)
+        async let diskSample = Self.collect(disk, tick: n, at: instant)
+        async let networkSample = Self.collect(network, tick: n, at: instant)
         let snapshot = await SystemSnapshot(tick: n, instant: instant, cpu: cpuSample, memory: memorySample,
-                                            processes: processTable)
+                                            processes: processTable, gpu: gpuSample, disk: diskSample,
+                                            network: networkSample)
         history.append(snapshot)
         continuation.yield(snapshot)
         return snapshot
