@@ -8,7 +8,7 @@ struct DetailsView: View {
         ProcessTableView(
             autosaveName: "ProcLens.detailsTable",
             columns: DetailsViewModel.columns,
-            rows: vm.rows,
+            feed: vm.feed,
             sort: vm.sort,
             onSortChange: { newSort in
                 guard newSort != vm.sort else { return }
@@ -20,7 +20,9 @@ struct DetailsView: View {
         )
         .searchable(text: $vm.searchText, placement: .toolbar, prompt: "Search name, PID or path")
         .navigationTitle("Details")
-        .onChange(of: model.latest?.tick, initial: true) { vm.rebuild(model: model) }
+        .background {
+            TickDriver(model: model) { vm.rebuild(model: model) }
+        }
         .onChange(of: vm.searchText) { vm.rebuild(model: model) }
     }
 }

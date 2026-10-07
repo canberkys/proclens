@@ -25,27 +25,61 @@ final class DetailsViewModel {
         static let path = 8, cmdline = 9, start = 10, sign = 11
     }
 
-    private static let restrictedTip = "Not permitted without the helper"
-    private static let restrictedTooltips: [Int: String] = [Col.path: restrictedTip, Col.cmdline: restrictedTip, Col.sign: restrictedTip]
-    private static let cmdTooltips: [Int: String] = [Col.cmdline: restrictedTip, Col.sign: restrictedTip]
+    private static let restrictedTip = ProcessesViewModel.restrictedTip
+    private static let dash = ProcessesViewModel.dash
+    /// Values the sampler cannot read for root-owned processes.
+    private static let unreadable = [Col.arch, Col.threads, Col.cpu, Col.memory, Col.cmdline, Col.sign]
+    private static let restrictedTooltips: [Int: String] =
+        Dictionary(uniqueKeysWithValues: (unreadable + [Col.path]).map { ($0, restrictedTip) })
+    private static let cmdTooltips: [Int: String] =
+        Dictionary(uniqueKeysWithValues: unreadable.map { ($0, restrictedTip) })
     private static let sortKey = "ProcLens.details.sort"
 
-    private(set) var rows: [TableRowData] = []
+    @ObservationIgnored let feed = TableFeed()
     var searchText = ""
     var sort: TableSort {
         didSet { UserDefaults.standard.set([sort.key, sort.ascending ? "1" : "0"], forKey: Self.sortKey) }
     }
 
-    /// Values that never change for a process lifetime (or change rarely), formatted once.
-    private struct Static {
+    /// Values that never change for a process lifetime (or change rarely), formatted once, plus the row cache.
+    private final class Static {
         var ppid: pid_t
         let pidText: String
         var ppidText: String
         let user: String
+        let userKey: String
         let arch: String
         let start: String
         let path: String
+        let nameKey: String
+        var pathKey: String?
+        var sig: Sig?
+        var row: TableRowData?
+
+        init(ppid: pid_t, pidText: String, user: String, arch: String, start: String, path: String, name: String) {
+            self.ppid = ppid
+            self.pidText = pidText
+            ppidText = String(ppid)
+            self.user = user
+            userKey = user.lowercased()
+            self.arch = arch
+            self.start = start
+            self.path = path
+            nameKey = name.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+        }
     }
+
+    private struct Sig: Equatable {
+        var cpuTenths: Int32
+        var memory: UInt64
+        var threads: Int32
+        var restricted: Bool
+        var ppid: pid_t
+        var cmd: String?
+        var sign: String?
+    }
+
+    @ObservationIgnored private var nextRev: UInt64 = 0
 
     @ObservationIgnored private weak var model: AppModel?
     @ObservationIgnored private var statics: [ProcessID: Static] = [:]
@@ -142,40 +176,89 @@ final class DetailsViewModel {
         }
         let key = sort.key
         let asc = sort.ascending
-        list.sort { a, b in
-            let r = self.compare(a, b, key: key)
-            if r == .orderedSame { return a.pid < b.pid }
-            return asc ? r == .orderedAscending : r == .orderedDescending
+        let infos = list.map { staticInfo(for: $0) }
+        var order = Array(list.indices)
+        switch key {
+        case "pid", "ppid", "arch", "threads", "cpu", "memory", "start":
+            let vals: [Double] = list.map { p in
+                switch key {
+                case "pid": Double(p.pid)
+                case "ppid": Double(p.ppid)
+                case "arch": p.isTranslated ? 1 : 0
+                case "threads": Double(p.threadCount)
+                case "cpu": p.cpu
+                case "memory": Double(p.memory)
+                default: Double(p.id.startTime)
+                }
+            }
+            let unreadableKey = ["arch", "threads", "cpu", "memory"].contains(key)
+            order.sort { i, j in
+                if unreadableKey, list[i].isRestricted != list[j].isRestricted { return !list[i].isRestricted }
+                if vals[i] != vals[j] { return asc ? vals[i] < vals[j] : vals[i] > vals[j] }
+                return list[i].pid < list[j].pid
+            }
+        default:
+            let keys: [String] = list.indices.map { i in
+                let p = list[i]
+                switch key {
+                case "user": return infos[i].userKey
+                case "path":
+                    if infos[i].pathKey == nil { infos[i].pathKey = (p.path ?? "").lowercased() }
+                    return infos[i].pathKey!
+                case "cmdline": return (cmdlines[p.id] ?? "").lowercased()
+                case "sign": return (p.path.flatMap { signing[$0] } ?? "").lowercased()
+                default: return infos[i].nameKey
+                }
+            }
+            order.sort { i, j in
+                if keys[i] != keys[j] { return asc ? keys[i] < keys[j] : keys[i] > keys[j] }
+                return list[i].pid < list[j].pid
+            }
         }
 
         var out: [TableRowData] = []
         out.reserveCapacity(list.count)
-        for p in list {
-            let s = staticInfo(for: p)
+        for i in order {
+            let p = list[i]
+            let s = infos[i]
+            let cpuTenths = Int32((p.cpu / coreCount * 1000).rounded())
+            let memQ = p.memory < 1_048_576 ? p.memory : (p.memory >> 15) << 15
+            let cmd = p.isRestricted ? nil : cmdlines[p.id]
+            let sign = p.isRestricted ? nil : p.path.flatMap { signing[$0] }
+            let sig = Sig(cpuTenths: cpuTenths, memory: memQ, threads: p.threadCount, restricted: p.isRestricted,
+                          ppid: p.ppid, cmd: cmd, sign: sign)
+            if let row = s.row, s.sig == sig {
+                out.append(row)
+                continue
+            }
             var cells = [String](repeating: "", count: Self.columns.count)
             cells[Col.pid] = s.pidText
             cells[Col.name] = p.name
             cells[Col.ppid] = s.ppidText
             cells[Col.user] = s.user
-            cells[Col.arch] = s.arch
-            cells[Col.threads] = String(p.threadCount)
-            cells[Col.cpu] = FastFormat.percent(p.cpu / coreCount)
-            cells[Col.memory] = FastFormat.bytes(p.memory)
             cells[Col.start] = s.start
-            var row = TableRowData(id: .process(p.id), cells: cells)
+            cells[Col.path] = s.path
+            var row: TableRowData
             if p.isRestricted {
-                row.cells[Col.path] = s.path
-                row.cells[Col.cmdline] = "—"
-                row.cells[Col.sign] = "—"
+                for c in Self.unreadable { cells[c] = Self.dash }
+                row = TableRowData(id: .process(p.id), cells: cells)
                 row.tooltips = p.path == nil ? Self.restrictedTooltips : Self.cmdTooltips
             } else {
-                row.cells[Col.path] = s.path
-                row.cells[Col.cmdline] = cmdlines[p.id] ?? ""
-                row.cells[Col.sign] = p.path.flatMap { signing[$0] } ?? ""
+                cells[Col.arch] = s.arch
+                cells[Col.threads] = String(p.threadCount)
+                cells[Col.cpu] = FastFormat.percent(Double(cpuTenths) / 1000)
+                cells[Col.memory] = FastFormat.bytes(memQ)
+                cells[Col.cmdline] = cmd ?? ""
+                cells[Col.sign] = sign ?? ""
+                row = TableRowData(id: .process(p.id), cells: cells)
             }
+            nextRev &+= 1
+            row.rev = nextRev
+            s.sig = sig
+            s.row = row
             out.append(row)
         }
-        rows = out
+        feed.push(out)
 
         if statics.count > table.processes.count * 2 + 64 {
             statics = statics.filter { table.processes[$0.key] != nil }
@@ -185,20 +268,18 @@ final class DetailsViewModel {
     }
 
     private func staticInfo(for p: ProcessSample) -> Static {
-        if var s = statics[p.id] {
+        if let s = statics[p.id] {
             if s.ppid != p.ppid {
                 s.ppid = p.ppid
                 s.ppidText = String(p.ppid)
-                statics[p.id] = s
             }
             return s
         }
         let start = Date(timeIntervalSince1970: Double(p.id.startTime) / 1_000_000)
         let s = Static(
-            ppid: p.ppid, pidText: String(p.pid), ppidText: String(p.ppid), user: userName(p.uid),
+            ppid: p.ppid, pidText: String(p.pid), user: userName(p.uid),
             arch: p.isTranslated ? "Intel (Rosetta)" : Self.nativeArch,
-            start: dateFormatter.string(from: start),
-            path: p.path ?? (p.isRestricted ? "—" : "—")
+            start: dateFormatter.string(from: start), path: p.path ?? "—", name: p.name
         )
         statics[p.id] = s
         return s
@@ -223,25 +304,5 @@ final class DetailsViewModel {
         }
         userNames[uid] = name
         return name
-    }
-
-    private func compare(_ a: ProcessSample, _ b: ProcessSample, key: String) -> ComparisonResult {
-        func cmp<T: Comparable>(_ x: T, _ y: T) -> ComparisonResult {
-            x < y ? .orderedAscending : (x > y ? .orderedDescending : .orderedSame)
-        }
-        switch key {
-        case "pid": return cmp(a.pid, b.pid)
-        case "ppid": return cmp(a.ppid, b.ppid)
-        case "user": return userName(a.uid).caseInsensitiveCompare(userName(b.uid))
-        case "arch": return cmp(a.isTranslated ? 1 : 0, b.isTranslated ? 1 : 0)
-        case "threads": return cmp(a.threadCount, b.threadCount)
-        case "cpu": return cmp(a.cpu, b.cpu)
-        case "memory": return cmp(a.memory, b.memory)
-        case "path": return (a.path ?? "").caseInsensitiveCompare(b.path ?? "")
-        case "cmdline": return (cmdlines[a.id] ?? "").caseInsensitiveCompare(cmdlines[b.id] ?? "")
-        case "start": return cmp(a.id.startTime, b.id.startTime)
-        case "sign": return (a.path.flatMap { signing[$0] } ?? "").caseInsensitiveCompare(b.path.flatMap { signing[$0] } ?? "")
-        default: return a.name.caseInsensitiveCompare(b.name)
-        }
     }
 }

@@ -65,20 +65,70 @@ struct CPUDetail: View {
         if !items.isEmpty {
             VStack(alignment: .leading, spacing: 6) {
                 Text(title).font(.headline)
-                LazyVGrid(columns: [GridItem(.adaptive(minimum: 110), spacing: 8)], spacing: 8) {
-                    ForEach(items, id: \.element.index) { pos, core in
-                        VStack(alignment: .leading, spacing: 2) {
-                            Text("Core \(core.index)  \(Format.percent(core.total))").font(.caption2).monospacedDigit()
-                            TimeChart(series: [.init(id: "c\(core.index)", points: pos < vm.perCore.count ? vm.perCore[pos] : [],
-                                                     color: kind == .efficiency ? .green : .accentColor)],
-                                      label: "\(title) core \(core.index)", summary: Format.percent(core.total), showAxes: false)
-                                .frame(height: 44)
-                        }
-                        .cardBackground()
-                    }
-                }
+                CoreTileGrid(
+                    tiles: items.map { pos, core in
+                        .init(label: "Core \(core.index)  \(Format.percent(core.total))",
+                              points: pos < vm.perCore.count ? vm.perCore[pos] : [])
+                    },
+                    color: kind == .efficiency ? .green : .accentColor)
             }
         }
+    }
+}
+
+private struct GridWidthKey: PreferenceKey {
+    static let defaultValue: CGFloat = 520
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) { value = nextValue() }
+}
+
+/// All per-core tiles in ONE Canvas: ~14 tiles x (stack + text + chart) as separate SwiftUI views cost far more
+/// per tick (view-graph diffing) than drawing them directly.
+private struct CoreTileGrid: View {
+    struct Tile { let label: String; let points: [ChartPoint] }
+    let tiles: [Tile]
+    let color: Color
+
+    private static let minWidth: CGFloat = 110, spacing: CGFloat = 8, tileHeight: CGFloat = 70
+
+    var body: some View {
+        Canvas { ctx, size in
+            let cols = max(1, Int((size.width + Self.spacing) / (Self.minWidth + Self.spacing)))
+            let tileW = (size.width - Self.spacing * CGFloat(cols - 1)) / CGFloat(cols)
+            for (i, t) in tiles.enumerated() {
+                let origin = CGPoint(x: CGFloat(i % cols) * (tileW + Self.spacing),
+                                     y: CGFloat(i / cols) * (Self.tileHeight + Self.spacing))
+                let rect = CGRect(origin: origin, size: CGSize(width: tileW, height: Self.tileHeight))
+                ctx.fill(Path(roundedRect: rect, cornerRadius: 8), with: .color(.gray.opacity(0.15)))
+                ctx.draw(Text(t.label).font(.caption2).monospacedDigit(), at: CGPoint(x: rect.minX + 10, y: rect.minY + 12), anchor: .leading)
+                let plot = CGRect(x: rect.minX + 10, y: rect.minY + 22, width: tileW - 20, height: Self.tileHeight - 32)
+                guard t.points.count > 1 else { continue }
+                var line = Path()
+                for (j, p) in t.points.enumerated() {
+                    let x = plot.minX + (p.x + 60) / 60 * plot.width
+                    let y = plot.maxY - CGFloat(min(1, max(0, p.y))) * plot.height
+                    if j == 0 { line.move(to: CGPoint(x: x, y: y)) } else { line.addLine(to: CGPoint(x: x, y: y)) }
+                }
+                var area = line
+                area.addLine(to: CGPoint(x: plot.maxX, y: plot.maxY))
+                area.addLine(to: CGPoint(x: plot.minX + (t.points[0].x + 60) / 60 * plot.width, y: plot.maxY))
+                area.closeSubpath()
+                ctx.fill(area, with: .color(color.opacity(0.18)))
+                ctx.stroke(line, with: .color(color), lineWidth: 1)
+            }
+        }
+        .frame(height: gridHeight)
+        .background(GeometryReader { g in Color.clear.preference(key: GridWidthKey.self, value: g.size.width) })
+        .onPreferenceChange(GridWidthKey.self) { if abs($0 - width) > 0.5 { width = $0 } }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(tiles.map(\.label).joined(separator: ", "))
+    }
+
+    /// Measured width of the grid; drives the row count (and so the height).
+    @State private var width: CGFloat = 520
+    private var gridHeight: CGFloat {
+        let cols = max(1, Int((width + Self.spacing) / (Self.minWidth + Self.spacing)))
+        let rows = (tiles.count + cols - 1) / cols
+        return CGFloat(rows) * Self.tileHeight + CGFloat(max(0, rows - 1)) * Self.spacing
     }
 }
 

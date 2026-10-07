@@ -41,11 +41,29 @@ struct TableRowData {
     var icon: NSImage?
     var isGroup = false
     var children: [TableRowData] = []
+    /// Non-zero when the producer guarantees equal `rev` => equal drawn content (cheap "unchanged" test).
+    var rev: UInt64 = 0
+    /// The producer did not rebuild `children` (collapsed parent); the table keeps what it already has.
+    var childrenFrozen = false
 
     /// Equality of everything that is drawn for this row itself (children excluded).
     func sameCells(as other: TableRowData) -> Bool {
-        cells == other.cells && heat == other.heat && tooltips == other.tooltips
+        if rev != 0 && rev == other.rev { return true }
+        return cells == other.cells && heat == other.heat && tooltips == other.tooltips
             && icon === other.icon && isGroup == other.isGroup
+    }
+
+    /// Columns whose drawn content differs from `old` (empty when the row looks identical).
+    func changedColumns(from old: TableRowData) -> IndexSet {
+        if rev != 0 && rev == old.rev { return [] }
+        var set = IndexSet()
+        for i in 0..<max(cells.count, old.cells.count) {
+            let a = i < cells.count ? cells[i] : "", b = i < old.cells.count ? old.cells[i] : ""
+            let ha = i < heat.count ? heat[i] : 0, hb = i < old.heat.count ? old.heat[i] : 0
+            if a != b || ha != hb || tooltips[i] != old.tooltips[i] { set.insert(i) }
+        }
+        if icon !== old.icon || isGroup != old.isGroup { set.insert(0) }
+        return set
     }
 }
 
@@ -65,4 +83,17 @@ enum ProcessIcons {
         img?.size = NSSize(width: 16, height: 16)
         return img
     }()
+}
+
+/// Pushes rows from a view model straight to the table, bypassing the SwiftUI view graph
+/// (no body re-evaluation per tick; only the NSOutlineView diff runs).
+@MainActor
+final class TableFeed {
+    private(set) var rows: [TableRowData] = []
+    var onPush: (([TableRowData]) -> Void)?
+
+    func push(_ newRows: [TableRowData]) {
+        rows = newRows
+        onPush?(newRows)
+    }
 }

@@ -18,6 +18,38 @@ struct TimeChart: View {
     var showAxes = true
 
     var body: some View {
+        if showAxes { chart } else { sparkline }
+    }
+
+    /// Axis-less charts (5 sidebar cards + up to ~20 per-core tiles) are drawn with a plain Canvas:
+    /// Swift Charts re-lays-out every mark each tick, which was the dominant cost of the Performance tab.
+    private var sparkline: some View {
+        Canvas { ctx, size in
+            let lo = yDomain.lowerBound, span = max(1e-9, yDomain.upperBound - lo)
+            for s in series {
+                guard s.points.count > 1 else { continue }
+                var line = Path()
+                for (i, p) in s.points.enumerated() {
+                    let x = (p.x + 60) / 60 * size.width
+                    let y = size.height - CGFloat(min(1, max(0, (p.y - lo) / span))) * size.height
+                    if i == 0 { line.move(to: CGPoint(x: x, y: y)) } else { line.addLine(to: CGPoint(x: x, y: y)) }
+                }
+                if s.filled, let first = s.points.first, let last = s.points.last {
+                    var area = line
+                    area.addLine(to: CGPoint(x: (last.x + 60) / 60 * size.width, y: size.height))
+                    area.addLine(to: CGPoint(x: (first.x + 60) / 60 * size.width, y: size.height))
+                    area.closeSubpath()
+                    ctx.fill(area, with: .color(s.color.opacity(0.18)))
+                }
+                ctx.stroke(line, with: .color(s.color), lineWidth: 1)
+            }
+        }
+        .accessibilityElement(children: .ignore)
+        .accessibilityLabel(label)
+        .accessibilityValue(summary)
+    }
+
+    private var chart: some View {
         Chart {
             ForEach(series) { s in
                 ForEach(s.points, id: \.x) { p in

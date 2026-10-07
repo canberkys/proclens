@@ -8,6 +8,8 @@ final class HeatCellView: NSTableCellView {
 
     private static let regular = NSFont.systemFont(ofSize: 12)
     private static let digits = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .regular)
+    /// Same for every font used here (12 pt system); avoids a text measurement per layout.
+    private static let labelHeight: CGFloat = ceil(NSTextField(labelWithString: "Ag").intrinsicContentSize.height)
     private static let bold = NSFont.systemFont(ofSize: 12, weight: .semibold)
 
     override init(frame frameRect: NSRect) {
@@ -16,6 +18,7 @@ final class HeatCellView: NSTableCellView {
         label.lineBreakMode = .byTruncatingTail
         label.cell?.usesSingleLineMode = true
         iconView.imageScaling = .scaleProportionallyUpOrDown
+        needsLayout = true
         addSubview(iconView)
         addSubview(label)
         textField = label
@@ -33,22 +36,31 @@ final class HeatCellView: NSTableCellView {
         }
     }
 
+    private var currentAlignment: NSTextAlignment = .natural
+    private var currentFont: NSFont?
+    private var currentTooltip: String?
+    private var currentIcon: NSImage?
+
     func configure(text: String, icon: NSImage?, showsIcon: Bool, heat: Float, alignment: NSTextAlignment,
-                   isGroup: Bool, monospaced: Bool, tooltip: String?, accessibility: String) {
-        if label.stringValue != text { label.stringValue = text }
-        label.alignment = alignment
-        label.font = isGroup ? Self.bold : (monospaced ? Self.digits : Self.regular)
-        iconView.image = icon
+                   isGroup: Bool, monospaced: Bool, tooltip: String?, accessibility: @autoclosure () -> String) {
+        var relayout = false
+        if label.stringValue != text {
+            label.stringValue = text
+            setAccessibilityLabel(accessibility())
+        }
+        if currentAlignment != alignment { currentAlignment = alignment; label.alignment = alignment }
+        let font = isGroup ? Self.bold : (monospaced ? Self.digits : Self.regular)
+        if currentFont !== font { currentFont = font; label.font = font; relayout = true }
+        if currentIcon !== icon { currentIcon = icon; iconView.image = icon }
         let hasIcon = showsIcon && icon != nil
-        if iconView.isHidden == hasIcon { iconView.isHidden = !hasIcon }
+        if iconView.isHidden == hasIcon { iconView.isHidden = !hasIcon; relayout = true }
         let alpha: CGFloat = heat > 0 ? 0.10 + 0.55 * CGFloat(min(heat, 1)) : 0
         if alpha != heatAlpha {
             heatAlpha = alpha
             needsDisplay = true
         }
-        toolTip = tooltip
-        setAccessibilityLabel(accessibility)
-        needsLayout = true
+        if currentTooltip != tooltip { currentTooltip = tooltip; toolTip = tooltip }
+        if relayout { needsLayout = true }
     }
 
     override func layout() {
@@ -59,7 +71,7 @@ final class HeatCellView: NSTableCellView {
             iconView.frame = CGRect(x: x, y: (h - 16) / 2, width: 16, height: 16)
             x += 20
         }
-        let lh = ceil(label.intrinsicContentSize.height)
+        let lh = Self.labelHeight
         label.frame = CGRect(x: x, y: (h - lh) / 2, width: max(0, bounds.width - x - 4), height: lh)
     }
 

@@ -45,14 +45,14 @@ final class PerformanceViewModel {
     private(set) var diskMax: Double = 1
     private(set) var networkMax: Double = 1
 
-    @ObservationIgnored private var detailTick: UInt64?
-    @ObservationIgnored private var lastTick: UInt64?
+    @ObservationIgnored private var detailTick: ContinuousClock.Instant?
+    @ObservationIgnored private var lastTick: ContinuousClock.Instant?
 
     func refresh(history: [SystemSnapshot], latest: SystemSnapshot?) {
         guard let latest else { return }
-        if lastTick == latest.tick && detailTick == latest.tick { return }
-        lastTick = latest.tick
-        detailTick = latest.tick
+        if lastTick == latest.instant && detailTick == latest.instant { return }
+        lastTick = latest.instant
+        detailTick = latest.instant
 
         let xs: [Double] = history.map { Self.secondsAgo($0.instant, latest.instant) }
         sparkCPU = zip(xs, history).map { ChartPoint(x: $0, y: $1.cpu?.total ?? 0) }

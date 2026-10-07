@@ -11,6 +11,32 @@ Architecture decisions and code reuse log. Newest first.
 
 ---
 
+### 2026-10-08 — Small binary, no third-party dependencies; D3 revised
+- **Decision:** The shipped app has no SPM dependencies. Release builds strip all symbols and use dead-code stripping and whole-module optimization. Target: universal bundle < 3 MB (it was 3.6 MB at the first UI build). **D3 is revised:** the global hotkey uses our own small Carbon `RegisterEventHotKey` wrapper instead of `KeyboardShortcuts`.
+- **Why:** The product owner requires a small, handy app. One hotkey doesn't justify a dependency, its UI and its maintenance.
+- **Alternatives considered:** `KeyboardShortcuts` (MIT); `-Osize` (rejected because CPU budget comes first).
+
+### 2026-10-08 — Menu bar quick panel
+- **Decision:** The MenuBarExtra becomes a `.window`-style panel with these parts:
+  - compact CPU/Memory/GPU/Network gauges and 60 s sparklines
+  - a search field (name or PID)
+  - the top 5 processes by CPU or memory, with End task / Force quit
+  - an "Open ProcLens" button
+  - an optional "Hide Dock icon" setting
+
+  The process list is computed only while the panel is open. Phase 2 adds listening dev-server ports with tree kill.
+- **Why:** Quick access is the most frequent use of a task manager. It also showcases the port/dev-server differentiator.
+- **Alternatives considered:** A plain menu, which offers no search or kill; a separate floating window, which is heavier.
+
+### 2026-10-08 — Kill UX is Windows-like
+- **Decision:** These ways to act on a process all go through `ProtectionPolicy` and a confirmation sheet:
+  - right-click menu: End task (Quit), Force quit, Suspend/Resume, Reveal in Finder, Copy PID/path
+  - Delete key = End task
+  - typing a PID in search finds it
+  - ⌘K opens "End process by PID"
+- **Why:** This is the product owner's requirement, and it matches Windows Task Manager muscle memory.
+- **Alternatives considered:** Toolbar-only actions (slower).
+
 ### 2026-10-08 — Device collectors: GPU, disk and network from public APIs only
 - **Decision:** `LiveIORegistrySource` reads `IOAccelerator` → `PerformanceStatistics` (`Device Utilization %`, fallback `GPU Activity(%)`) and `IOBlockStorageDriver` → `Statistics` (`Bytes (Read)` / `Bytes (Write)`, id = registry entry ID). `LiveNetworkSource` walks `sysctl NET_RT_IFLIST2` `if_msghdr2` records (64-bit counters). `DiskCollector` and `NetworkCollector` turn counters into bytes/s using the tick `instant`; first sample, new device or a decreasing counter gives zero for that device, loopback is excluded, vanished devices are pruned. `GPUCollector` is a passthrough.
 - **Why:** The aggregate numbers need no DiskArbitration (physical drives, volumes and mounts are not needed for throughput). Per-device zeroing avoids spikes from counter resets or hot-plugged disks and interfaces.
@@ -76,3 +102,8 @@ Architecture decisions and code reuse log. Newest first.
 - **Decision:** Product name is ProcLens, following the Lens family (vLens, PkgLens).
 - **Why:** Clear meaning (process lens), fits the family. A Linux kernel-module project of the same name exists on GitHub (navidpadid/ProcLens); different platform, acceptable.
 - **Alternatives considered:** TaskLens (taken by an Obsidian plugin and an iOS app).
+
+### 2026-10-08 — Self-overhead: hidden window = light sampler, cached rows, feed bypasses SwiftUI
+- **Decision:** (1) `AppModel` tracks window visibility (occlusion/miniaturize/app hidden). While hidden it stops the full `Sampler` and runs a CPU+memory-only `Sampler` (shared collectors) so only the menu bar graph keeps updating; window views observe `visibleSnapshot`, which freezes while hidden. `PROCLENS_FORCE_VISIBLE=1` disables the gating for profiling on a covered/asleep screen. (2) `ProcessesViewModel` caches per-process static data (group, owner, display/sort key, tooltip) and the formatted row, keyed by a quantized signature; rows are rebuilt only when the signature changes; name sort uses a precomputed 8-byte rank; collapsed groups/apps are not rebuilt (children frozen until expanded). (3) Rows reach the `NSOutlineView` through a `TableFeed` (no SwiftUI body re-evaluation per tick), `beginUpdates` is only issued for structural changes, changed visible cells are refreshed in place. (4) Menu bar image is rendered once into a bitmap and reused while unchanged. (5) Workspace launch/terminate notifications are debounced and only invalidate caches when the regular-app set changes.
+- **Why:** SPEC budget < 1% CPU at 1 s sampling with 1,000+ processes. Profiling showed per-tick sorting/formatting of ~1,000 rows, full-table diffs and a redrawn status item dominated the UI cost, and the full collectors ran even with the window hidden.
+- **Alternatives considered:** Pausing the Core sampler entirely when hidden (loses the menu bar graph); virtualised cell formatting (bigger rewrite, not needed yet); changing `ProcessCollector` (remaining floor is ~2 syscalls per process per tick, left alone).

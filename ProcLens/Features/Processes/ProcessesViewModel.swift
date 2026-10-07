@@ -22,7 +22,7 @@ final class ProcessesViewModel {
                         headerTooltip: "Phase 2"),
     ]
 
-    private(set) var rows: [TableRowData] = []
+    @ObservationIgnored let feed = TableFeed()
     private(set) var totals = Totals()
     var searchText = ""
     var sort: TableSort {
@@ -31,8 +31,9 @@ final class ProcessesViewModel {
 
     private static let sortKey = "ProcLens.processes.sort"
 
-    @ObservationIgnored private var iconCache: [pid_t: NSImage] = [:]
-    @ObservationIgnored private var tooltipCache: [ProcessID: [Int: String]] = [:]
+    /// Tooltip for every value the sampler could not read for a root-owned process.
+    static let restrictedTip = "Not permitted without the helper (Phase 2)"
+    static let dash = "—"
 
     init() {
         if let s = UserDefaults.standard.array(forKey: Self.sortKey) as? [String], s.count == 2,
@@ -43,90 +44,311 @@ final class ProcessesViewModel {
         }
     }
 
-    // MARK: - Build
+    // MARK: - Per-process cache
 
-    private struct Item {
-        let sample: ProcessSample
-        let displayName: String
-        var cpu: Double
+    /// Quantized view of everything a row displays; equal sig => the cached row is still right.
+    private struct Sig: Equatable {
+        var cpuTenths: Int32
         var memory: UInt64
-        var energy: Double
-        var disk: Double
-        var kids: [Item] = []
-        var isApp = false
+        var energy: Int32
+        var disk: Int64
+        var restricted: Bool
     }
 
+    /// One live process. Static data is computed once; the row is rebuilt only when `sig` changes.
+    private final class Entry {
+        var s: ProcessSample
+        let group: ProcessGroup
+        var owner: ProcessID?
+        var ppid: pid_t
+        let displayName: String
+        let nameKey: String
+        /// First 8 UTF-8 bytes of `nameKey`, big-endian: integer compare decides almost every name comparison.
+        let nameRank: UInt64
+        let isApp: Bool
+        let nameTip: String?
+        var haystack: String?
+        // Current (for apps: aggregated with children) values.
+        var cpu = 0.0, energy = 0.0, disk = 0.0
+        var memory: UInt64 = 0
+        var restricted = false
+        var sig: Sig?
+        var row: TableRowData?
+        var iconTries = 0
+
+        init(sample p: ProcessSample, group: ProcessGroup, displayName: String, isApp: Bool) {
+            s = p
+            ppid = p.ppid
+            self.group = group
+            self.displayName = displayName
+            self.isApp = isApp
+            nameKey = displayName.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: nil)
+            var rank: UInt64 = 0
+            var n = 0
+            for b in nameKey.utf8.prefix(8) { rank = rank << 8 | UInt64(b); n += 1 }
+            nameRank = rank << UInt64((8 - n) * 8)
+            if let entry = DaemonNameMap.shared.entry(for: p.name) {
+                nameTip = p.path.map { "\(entry.title)\n\($0)" } ?? entry.title
+            } else {
+                nameTip = p.path
+            }
+        }
+
+        func loadOwnValues() {
+            restricted = s.isRestricted
+            cpu = s.cpu; memory = s.memory; energy = s.energy
+            disk = s.diskReadPerSec + s.diskWritePerSec
+        }
+
+        func matches(_ query: String) -> Bool {
+            if haystack == nil {
+                haystack = "\(displayName)\n\(s.name)\n\(s.pid)\n\(s.path ?? "")".lowercased()
+            }
+            return haystack!.contains(query)
+        }
+    }
+
+    private struct Stamp: Equatable {
+        var epoch: Int
+        var sortKey: String
+        var ascending: Bool
+    }
+
+    private struct Context {
+        let cores: Double
+        let memTotal: Double
+    }
+
+    @ObservationIgnored private var cache: [ProcessID: Entry] = [:]
+    @ObservationIgnored private var iconCache: [pid_t: NSImage] = [:]
+    @ObservationIgnored private var appsRevision = -1
+    @ObservationIgnored private var lastCount = -1
+    @ObservationIgnored private var lastQuery = ""
+    /// Bumped whenever membership, filter or app mapping changes (invalidates cached structure/order).
+    @ObservationIgnored private var epoch = 0
+    /// Bumped only when the filter or app mapping changes (cached rows of collapsed nodes stay valid otherwise).
+    @ObservationIgnored private var filterEpoch = 0
+    @ObservationIgnored private var structureEpoch = -1
+    @ObservationIgnored private var topLevel: [ProcessGroup: [Entry]] = [:]
+    @ObservationIgnored private var allKids: [ProcessID: [Entry]] = [:]
+    @ObservationIgnored private var filteredTop: [ProcessGroup: [Entry]] = [:]
+    @ObservationIgnored private var filteredKids: [ProcessID: [Entry]] = [:]
+    @ObservationIgnored private var orderCache: [NodeID: (stamp: Stamp, list: [Entry])] = [:]
+    @ObservationIgnored private var emitted: [NodeID: (stamp: Stamp, rows: [TableRowData])] = [:]
+    @ObservationIgnored private var expandedIDs: Set<NodeID> = [.group(.apps), .group(.background), .group(.system)]
+    @ObservationIgnored private var nextRev: UInt64 = 0
+    @ObservationIgnored private weak var lastModel: AppModel?
+
+    /// Called by the table when the user expands/collapses a node. Expanding a node whose children were
+    /// not refreshed while collapsed rebuilds immediately.
+    func expansionChanged(_ ids: Set<NodeID>) {
+        let grew = !ids.subtracting(expandedIDs).isEmpty
+        expandedIDs = ids
+        if grew, let model = lastModel { rebuild(model: model) }
+    }
+
+    // MARK: - Build
+
     func rebuild(model: AppModel) {
+        lastModel = model
         guard let snapshot = model.latest else { return }
         updateTotals(snapshot)
         guard let table = snapshot.processes else { return }
 
-        let all = Array(table.processes.values)
         let grouper = model.grouper
-        let owners = grouper.groupApps(all)
         let query = searchText.trimmingCharacters(in: .whitespaces).lowercased()
-        let coreCount = Double(max(1, snapshot.cpu?.cores.count ?? 1))
-        let memTotal = Double(snapshot.memory?.total ?? 0)
+        var dirty = false
+        if appsRevision != model.appsRevision {
+            appsRevision = model.appsRevision
+            cache.removeAll(keepingCapacity: true)
+            emitted.removeAll()
+            filterEpoch &+= 1
+            dirty = true
+        }
+        if query != lastQuery { lastQuery = query; filterEpoch &+= 1; dirty = true }
+        if table.processes.count != lastCount { lastCount = table.processes.count; dirty = true }
 
-        var kidsByApp: [ProcessID: [ProcessSample]] = [:]
-        var topLevel: [ProcessGroup: [ProcessSample]] = [:]
-        for p in all {
-            let g = grouper.group(for: p)
-            if g != .apps, let owner = owners[p.id] {
-                kidsByApp[owner, default: []].append(p)
+        // Pass 1: refresh samples; create entries for new processes.
+        var fresh: [Entry] = []
+        var reparented = false
+        for p in table.processes.values {
+            if let e = cache[p.id] {
+                e.s = p
+                if p.ppid != e.ppid { e.ppid = p.ppid; reparented = true }
+                e.loadOwnValues()
             } else {
-                topLevel[g, default: []].append(p)
+                let g = grouper.group(for: p)
+                let name = g == .apps ? (model.runningApps[p.pid]?.localizedName ?? p.name) : p.name
+                let e = Entry(sample: p, group: g, displayName: name, isApp: g == .apps)
+                e.loadOwnValues()
+                cache[p.id] = e
+                fresh.append(e)
             }
         }
-
-        func matches(_ p: ProcessSample, _ displayName: String) -> Bool {
-            if query.isEmpty { return true }
-            return displayName.lowercased().contains(query) || p.name.lowercased().contains(query)
-                || String(p.pid).contains(query) || (p.path?.lowercased().contains(query) ?? false)
+        if !fresh.isEmpty || reparented { dirty = true }
+        if dirty {
+            if cache.count > table.processes.count + 256 {
+                cache = cache.filter { table.processes[$0.key] != nil }
+                emitted = emitted.filter { entry in
+                    switch entry.key {
+                    case .group: true
+                    case .process(let id): table.processes[id] != nil
+                    }
+                }
+            }
+            orderCache.removeAll(keepingCapacity: true)
+            epoch &+= 1
+            assignOwners(table: table, grouper: grouper, fresh: fresh, all: reparented)
+            rebuildStructure(table: table)
         }
-
-        func leaf(_ p: ProcessSample) -> Item {
-            Item(sample: p, displayName: p.name, cpu: p.cpu, memory: p.memory, energy: p.energy,
-                 disk: p.diskReadPerSec + p.diskWritePerSec)
+        // Aggregate children into app rows.
+        for e in topLevel[.apps] ?? [] {
+            for k in allKids[e.s.id] ?? [] where !k.restricted {
+                e.cpu += k.cpu; e.memory += k.memory; e.energy += k.energy; e.disk += k.disk
+            }
         }
+        if structureEpoch != epoch { rebuildFilter(query: query) }
+
+        let ctx = Context(cores: Double(max(1, snapshot.cpu?.cores.count ?? 1)),
+                          memTotal: Double(snapshot.memory?.total ?? 0))
+        let stamp = Stamp(epoch: epoch, sortKey: sort.key, ascending: sort.ascending)
+        let freezeStamp = Stamp(epoch: filterEpoch, sortKey: sort.key, ascending: sort.ascending)
 
         var out: [TableRowData] = []
         for group in ProcessGroup.allCases {
-            var items: [Item] = []
-            for p in topLevel[group] ?? [] {
-                if group == .apps {
-                    let name = model.runningApps[p.pid]?.localizedName ?? p.name
-                    var item = leaf(p)
-                    item = Item(sample: p, displayName: name, cpu: item.cpu, memory: item.memory,
-                                energy: item.energy, disk: item.disk, kids: [], isApp: true)
-                    let kids = (kidsByApp[p.id] ?? []).map(leaf)
-                    for k in kids {
-                        item.cpu += k.cpu; item.memory += k.memory; item.energy += k.energy; item.disk += k.disk
-                    }
-                    let selfMatch = matches(p, name)
-                    item.kids = selfMatch ? kids : kids.filter { matches($0.sample, $0.displayName) }
-                    if !selfMatch && item.kids.isEmpty { continue }
-                    item.kids.sort(by: comparator())
-                    items.append(item)
-                } else if matches(p, p.name) {
-                    items.append(leaf(p))
-                }
-            }
-            if items.isEmpty { continue }
-            items.sort(by: comparator())
+            let list = filteredTop[group] ?? []
+            if list.isEmpty { continue }
             let title: String = switch group {
             case .apps: "Apps"
             case .background: "Background processes"
             case .system: "System processes"
             }
             var row = TableRowData(id: .group(group), cells: Array(repeating: "", count: Self.columns.count))
-            row.cells[0] = "\(title) (\(items.count))"
+            row.cells[0] = "\(title) (\(list.count))"
             row.isGroup = true
-            row.children = items.map { makeRow($0, coreCount: coreCount, memTotal: memTotal) }
+            let gid = NodeID.group(group)
+            if !expandedIDs.contains(gid), let old = emitted[gid], old.stamp == freezeStamp {
+                row.children = old.rows
+                row.childrenFrozen = true
+            } else {
+                row.children = ordered(list, key: gid, stamp: stamp).map { buildNode($0, ctx: ctx, stamp: stamp, freeze: freezeStamp) }
+                emitted[gid] = (freezeStamp, row.children)
+            }
             out.append(row)
         }
-        rows = out
-        if tooltipCache.count > all.count * 2 + 64 { tooltipCache.removeAll(keepingCapacity: true) }
+        feed.push(out)
+    }
+
+    /// Nearest `.apps` ancestor for new entries (or for everything when a parent changed).
+    private func assignOwners(table: ProcessTable, grouper: ProcessGrouper, fresh: [Entry], all: Bool) {
+        let targets: [Entry] = all ? Array(cache.values) : fresh
+        guard !targets.isEmpty else { return }
+        var byPID: [pid_t: ProcessSample] = [:]
+        byPID.reserveCapacity(table.processes.count)
+        for p in table.processes.values { byPID[p.pid] = p }
+        for e in targets {
+            e.owner = nil
+            var visited: Set<pid_t> = [e.s.pid]
+            var parentPID = e.s.ppid
+            var depth = 0
+            while depth < 32 {
+                guard visited.insert(parentPID).inserted, let parent = byPID[parentPID] else { break }
+                let pg = cache[parent.id]?.group ?? grouper.group(for: parent)
+                if pg == .apps { e.owner = parent.id; break }
+                parentPID = parent.ppid
+                depth += 1
+            }
+        }
+    }
+
+    private func rebuildStructure(table: ProcessTable) {
+        topLevel.removeAll(keepingCapacity: true)
+        allKids.removeAll(keepingCapacity: true)
+        for (_, e) in cache where table.processes[e.s.id] != nil {
+            if e.group != .apps, let owner = e.owner {
+                allKids[owner, default: []].append(e)
+            } else {
+                topLevel[e.group, default: []].append(e)
+            }
+        }
+    }
+
+    private func rebuildFilter(query: String) {
+        structureEpoch = epoch
+        filteredTop.removeAll(keepingCapacity: true)
+        filteredKids.removeAll(keepingCapacity: true)
+        for group in ProcessGroup.allCases {
+            var list: [Entry] = []
+            for e in topLevel[group] ?? [] {
+                if group == .apps {
+                    let kids = allKids[e.s.id] ?? []
+                    let selfMatch = query.isEmpty || e.matches(query)
+                    let shown = selfMatch ? kids : kids.filter { $0.matches(query) }
+                    if !selfMatch && shown.isEmpty { continue }
+                    filteredKids[e.s.id] = shown
+                    list.append(e)
+                } else if query.isEmpty || e.matches(query) {
+                    list.append(e)
+                }
+            }
+            filteredTop[group] = list
+        }
+    }
+
+    private func buildNode(_ e: Entry, ctx: Context, stamp: Stamp, freeze: Stamp) -> TableRowData {
+        var row = makeRow(e, ctx: ctx)
+        guard e.isApp, let kids = filteredKids[e.s.id], !kids.isEmpty else {
+            emitted[.process(e.s.id)] = nil
+            return row
+        }
+        let nid = NodeID.process(e.s.id)
+        if !expandedIDs.contains(nid), let old = emitted[nid], old.stamp == freeze {
+            row.children = old.rows
+            row.childrenFrozen = true
+        } else {
+            row.children = ordered(kids, key: nid, stamp: stamp).map { makeRow($0, ctx: ctx) }
+            emitted[nid] = (freeze, row.children)
+        }
+        return row
+    }
+
+    private func ordered(_ list: [Entry], key: NodeID, stamp: Stamp) -> [Entry] {
+        let asc = sort.ascending
+        if sort.key == "name" {
+            if let c = orderCache[key], c.stamp == stamp { return c.list }
+            // Sort plain (rank, index) pairs: no reference counting in the comparator.
+            struct Key { var rank: UInt64; var idx: Int32 }
+            var keys = [Key]()
+            keys.reserveCapacity(list.count)
+            for (i, e) in list.enumerated() { keys.append(Key(rank: e.nameRank, idx: Int32(i))) }
+            keys.sort { a, b in
+                if a.rank != b.rank { return asc ? a.rank < b.rank : a.rank > b.rank }
+                let x = list[Int(a.idx)], y = list[Int(b.idx)]
+                if x.nameKey != y.nameKey { return asc ? x.nameKey < y.nameKey : x.nameKey > y.nameKey }
+                return x.s.pid < y.s.pid
+            }
+            let sorted = keys.map { list[Int($0.idx)] }
+            orderCache[key] = (stamp, sorted)
+            return sorted
+        }
+        struct Key { var v: Double; var r: Bool; var pid: pid_t; var idx: Int32 }
+        var keys = [Key]()
+        keys.reserveCapacity(list.count)
+        for (i, e) in list.enumerated() {
+            let v: Double = switch sort.key {
+            case "cpu": e.cpu
+            case "memory": Double(e.memory)
+            case "energy": e.energy
+            default: e.disk
+            }
+            keys.append(Key(v: v, r: e.restricted, pid: e.s.pid, idx: Int32(i)))
+        }
+        keys.sort { a, b in
+            if a.r != b.r { return !a.r }          // unreadable ("—") always last
+            if a.v != b.v { return asc ? a.v < b.v : a.v > b.v }
+            return a.pid < b.pid
+        }
+        return keys.map { list[Int($0.idx)] }
     }
 
     private func updateTotals(_ s: SystemSnapshot) {
@@ -137,45 +359,54 @@ final class ProcessesViewModel {
         if t != totals { totals = t }
     }
 
-    private func makeRow(_ item: Item, coreCount: Double, memTotal: Double) -> TableRowData {
-        let p = item.sample
+    private func makeRow(_ e: Entry, ctx: Context) -> TableRowData {
+        let cpuTenths = Int32((e.cpu / ctx.cores * 1000).rounded())
+        let memQ = e.memory < 1_048_576 ? e.memory : (e.memory >> 15) << 15
+        let sig = Sig(cpuTenths: cpuTenths, memory: memQ, energy: Int32(min(e.energy, 1e6)),
+                      disk: Int64(min(e.disk, 1e15) / 100), restricted: e.restricted)
+        if let row = e.row, e.sig == sig, !(e.isApp && row.icon == nil && e.iconTries < 3) { return row }
+
+        let p = e.s
         var cells = [String](repeating: "", count: Self.columns.count)
-        cells[0] = item.displayName
-        cells[1] = FastFormat.percent(item.cpu / coreCount)
-        cells[2] = FastFormat.bytes(item.memory)
-        cells[3] = Self.energyLabel(item.energy)
-        cells[4] = FastFormat.rate(item.disk)
-        var row = TableRowData(id: .process(p.id), cells: cells)
-        row.heat = [0,
-                    Heat.scale(item.cpu / coreCount, reference: 0.25),
-                    Heat.scale(Double(item.memory), reference: max(1, memTotal * 0.10)),
-                    Heat.scale(item.energy, reference: 150),
-                    Heat.scale(item.disk, reference: 20_000_000), 0, 0]
-        if item.isApp {
-            if let img = iconCache[p.pid] { row.icon = img } else if let img = Self.icon(for: p.pid) {
-                iconCache[p.pid] = img
-                row.icon = img
+        cells[0] = e.displayName
+        var row: TableRowData
+        if e.restricted {
+            for i in 1...4 { cells[i] = Self.dash }
+            row = TableRowData(id: .process(p.id), cells: cells)
+            row.heat = [0, 0, 0, 0, 0, 0, 0]
+        } else {
+            let cpu = Double(cpuTenths) / 1000
+            cells[1] = FastFormat.percent(cpu)
+            cells[2] = FastFormat.bytes(memQ)
+            cells[3] = Self.energyLabel(e.energy)
+            cells[4] = FastFormat.rate(e.disk)
+            row = TableRowData(id: .process(p.id), cells: cells)
+            row.heat = [0,
+                        Self.quantize(Heat.scale(cpu, reference: 0.25)),
+                        Self.quantize(Heat.scale(Double(memQ), reference: max(1, ctx.memTotal * 0.10))),
+                        Self.quantize(Heat.scale(e.energy, reference: 150)),
+                        Self.quantize(Heat.scale(e.disk, reference: 20_000_000)), 0, 0]
+        }
+        if e.isApp {
+            if let img = iconCache[p.pid] { row.icon = img } else {
+                e.iconTries += 1
+                if let img = Self.icon(for: p.pid) { iconCache[p.pid] = img; row.icon = img }
             }
         } else {
             row.icon = ProcessIcons.generic
         }
-        if let tip = tooltipCache[p.id] {
-            row.tooltips = tip
-        } else {
-            var tip: [Int: String] = [:]
-            if let entry = DaemonNameMap.shared.entry(for: p.name) {
-                tip[0] = p.path.map { "\(entry.title)\n\($0)" } ?? entry.title
-            } else if let path = p.path {
-                tip[0] = path
-            }
-            tooltipCache[p.id] = tip
-            row.tooltips = tip
-        }
-        if !item.kids.isEmpty {
-            row.children = item.kids.map { makeRow($0, coreCount: coreCount, memTotal: memTotal) }
-        }
+        var tip: [Int: String] = [:]
+        if let t = e.nameTip { tip[0] = t }
+        if e.restricted { for i in 1...4 { tip[i] = Self.restrictedTip } }
+        row.tooltips = tip
+        nextRev &+= 1
+        row.rev = nextRev
+        e.sig = sig
+        e.row = row
         return row
     }
+
+    private static func quantize(_ h: Float) -> Float { (h * 20).rounded() / 20 }
 
     private static func icon(for pid: pid_t) -> NSImage? {
         guard let img = NSRunningApplication(processIdentifier: pid)?.icon else { return nil }
@@ -190,22 +421,6 @@ final class ProcessesViewModel {
         case ..<75: "Moderate"
         case ..<150: "High"
         default: "Very high"
-        }
-    }
-
-    private func comparator() -> (Item, Item) -> Bool {
-        let key = sort.key, asc = sort.ascending
-        return { a, b in
-            let r: ComparisonResult
-            switch key {
-            case "cpu": r = a.cpu < b.cpu ? .orderedAscending : (a.cpu > b.cpu ? .orderedDescending : .orderedSame)
-            case "memory": r = a.memory < b.memory ? .orderedAscending : (a.memory > b.memory ? .orderedDescending : .orderedSame)
-            case "energy": r = a.energy < b.energy ? .orderedAscending : (a.energy > b.energy ? .orderedDescending : .orderedSame)
-            case "disk": r = a.disk < b.disk ? .orderedAscending : (a.disk > b.disk ? .orderedDescending : .orderedSame)
-            default: r = a.displayName.caseInsensitiveCompare(b.displayName)
-            }
-            if r == .orderedSame { return a.sample.pid < b.sample.pid }
-            return asc ? r == .orderedAscending : r == .orderedDescending
         }
     }
 }

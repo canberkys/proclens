@@ -8,25 +8,28 @@ import SwiftUI
 struct ProcessTableView: NSViewRepresentable {
     let autosaveName: String
     let columns: [TableColumnSpec]
-    let rows: [TableRowData]
+    let feed: TableFeed
     let sort: TableSort
     var onSortChange: (TableSort) -> Void
     var onVisibleIDsChange: (([ProcessID]) -> Void)?
     var onSelectionChange: (([ProcessID]) -> Void)?
+    var onExpansionChange: ((Set<NodeID>) -> Void)?
     var handler: any ProcessActionHandler
 
-    init(autosaveName: String, columns: [TableColumnSpec], rows: [TableRowData], sort: TableSort,
+    init(autosaveName: String, columns: [TableColumnSpec], feed: TableFeed, sort: TableSort,
          onSortChange: @escaping (TableSort) -> Void,
          onVisibleIDsChange: (([ProcessID]) -> Void)? = nil,
          onSelectionChange: (([ProcessID]) -> Void)? = nil,
+         onExpansionChange: ((Set<NodeID>) -> Void)? = nil,
          handler: any ProcessActionHandler = LoggingProcessActionHandler()) {
         self.autosaveName = autosaveName
         self.columns = columns
-        self.rows = rows
+        self.feed = feed
         self.sort = sort
         self.onSortChange = onSortChange
         self.onVisibleIDsChange = onVisibleIDsChange
         self.onSelectionChange = onSelectionChange
+        self.onExpansionChange = onExpansionChange
         self.handler = handler
     }
 
@@ -50,7 +53,7 @@ struct ProcessTableView: NSViewRepresentable {
         let c = context.coordinator
         c.parent = self
         c.syncSortDescriptors()
-        c.apply(rows)
+        c.attach(feed)
     }
 
     // MARK: - Coordinator
@@ -62,9 +65,15 @@ struct ProcessTableView: NSViewRepresentable {
         private let contextMenu = NSMenu()
         private let headerMenu = NSMenu()
         private var roots: [TableNode] = []
+        /// Built lazily (only selection restore needs it) and invalidated by structural changes.
         private var index: [NodeID: TableNode] = [:]
+        private var indexValid = false
         private var expanded: Set<NodeID> = [.group(.apps), .group(.background), .group(.system)]
         private var suppressCallbacks = false
+        private var structureChanged = false
+        /// `beginUpdates` is only issued when a tick actually changes structure (it is surprisingly costly).
+        private var batching = false
+        private func batch() { if !batching { batching = true; outline.beginUpdates() } }
         private var lastVisible: [ProcessID] = []
         private var lastSelection: [ProcessID] = []
         private var columnIndex: [String: Int] = [:]
@@ -120,6 +129,15 @@ struct ProcessTableView: NSViewRepresentable {
             return outline
         }
 
+        private weak var attachedFeed: TableFeed?
+
+        func attach(_ feed: TableFeed) {
+            guard attachedFeed !== feed else { return }
+            attachedFeed = feed
+            feed.onPush = { [weak self] rows in self?.apply(rows) }
+            apply(feed.rows)
+        }
+
         func syncSortDescriptors() {
             let want = parent.sort
             if let d = outline.sortDescriptors.first, d.key == want.key, d.ascending == want.ascending { return }
@@ -132,7 +150,7 @@ struct ProcessTableView: NSViewRepresentable {
 
         func apply(_ newRows: [TableRowData]) {
             let selectedBefore = selectedNodeIDs()
-            var changed = Set<NodeID>()
+            var changed: [NodeID: IndexSet] = [:]
             var inserted: [TableNode] = []
 
             suppressCallbacks = true
@@ -143,35 +161,42 @@ struct ProcessTableView: NSViewRepresentable {
                 roots = newRows.map(TableNode.init)
                 outline.reloadData()
                 inserted = flatten(roots)
+                indexValid = false
             } else {
-                outline.beginUpdates()
+                batching = false
                 roots = sync(parent: nil, old: roots, new: newRows, changed: &changed, inserted: &inserted)
-                outline.endUpdates()
+                if batching { outline.endUpdates(); batching = false }
             }
 
-            index.removeAll(keepingCapacity: true)
-            for node in flatten(roots) { index[node.id] = node }
+            if !inserted.isEmpty || structureChanged { indexValid = false }
+            structureChanged = false
 
             for node in inserted where !node.children.isEmpty && expanded.contains(node.id) {
                 outline.expandItem(node)
             }
 
-            // Reload only visible rows whose content changed.
+            // Refresh the visible cells whose content changed, in place (no row reload machinery).
             if !changed.isEmpty {
                 let range = outline.rows(in: outline.visibleRect)
                 if range.length > 0 {
-                    var rows = IndexSet()
                     for r in range.location..<(range.location + range.length) {
-                        if let node = outline.item(atRow: r) as? TableNode, changed.contains(node.id) { rows.insert(r) }
-                    }
-                    if !rows.isEmpty {
-                        outline.reloadData(forRowIndexes: rows, columnIndexes: IndexSet(0..<outline.numberOfColumns))
+                        guard let node = outline.item(atRow: r) as? TableNode, let cols = changed[node.id] else { continue }
+                        for c in cols where c < outline.numberOfColumns {
+                            if let cell = outline.view(atColumn: c, row: r, makeIfNecessary: false) as? HeatCellView {
+                                configure(cell, node: node, columnIdentifier: outline.tableColumns[c].identifier)
+                            }
+                        }
                     }
                 }
             }
 
             // Preserve selection across structural changes.
             if selectedNodeIDs() != selectedBefore {
+                if !indexValid {
+                    index.removeAll(keepingCapacity: true)
+                    for node in flatten(roots) { index[node.id] = node }
+                    indexValid = true
+                }
                 var set = IndexSet()
                 for id in selectedBefore {
                     if let node = index[id] {
@@ -201,12 +226,14 @@ struct ProcessTableView: NSViewRepresentable {
         }
 
         private func sync(parent: TableNode?, old: [TableNode], new: [TableRowData],
-                          changed: inout Set<NodeID>, inserted: inout [TableNode]) -> [TableNode] {
+                          changed: inout [NodeID: IndexSet], inserted: inout [TableNode]) -> [TableNode] {
             // A node gaining or losing all children changes its disclosure state: reload just that node.
             if let parent, old.isEmpty != new.isEmpty {
+                structureChanged = true
                 let fresh = new.map(TableNode.init)
                 parent.children = fresh
                 inserted.append(contentsOf: flatten(fresh))
+                batch()
                 outline.reloadItem(parent, reloadChildren: true)
                 return fresh
             }
@@ -217,11 +244,14 @@ struct ProcessTableView: NSViewRepresentable {
             if old.count == new.count, zip(old, newIDs).allSatisfy({ $0.id == $1 }) {
                 for (node, d) in zip(old, new) {
                     update(node, with: d, changed: &changed)
+                    if d.childrenFrozen { continue }
                     node.children = sync(parent: node, old: node.children, new: d.children, changed: &changed, inserted: &inserted)
                 }
                 return old
             }
 
+            structureChanged = true
+            batch()
             let parentExpanded = parent == nil || outline.isItemExpanded(parent)
             var needsReload = !parentExpanded
             let newSet = Set(newIDs)
@@ -276,14 +306,18 @@ struct ProcessTableView: NSViewRepresentable {
             if needsReload { outline.reloadItem(parent, reloadChildren: true) }
 
             // 4. Recurse into retained nodes.
-            for (node, d) in staged {
+            for (node, d) in staged where !d.childrenFrozen {
                 node.children = sync(parent: node, old: node.children, new: d.children, changed: &changed, inserted: &inserted)
             }
             return final
         }
 
-        private func update(_ node: TableNode, with d: TableRowData, changed: inout Set<NodeID>) {
-            if !node.data.sameCells(as: d) { changed.insert(d.id) }
+        private func update(_ node: TableNode, with d: TableRowData, changed: inout [NodeID: IndexSet]) {
+            if node.data.rev != 0 && node.data.rev == d.rev { return }
+            if !node.data.sameCells(as: d) {
+                let cols = d.changedColumns(from: node.data)
+                if !cols.isEmpty { changed[d.id] = cols }
+            }
             node.data = d
         }
 
@@ -306,12 +340,18 @@ struct ProcessTableView: NSViewRepresentable {
 
         func outlineView(_ outlineView: NSOutlineView, viewFor tableColumn: NSTableColumn?, item: Any) -> NSView? {
             guard let node = item as? TableNode, let tableColumn,
-                  let ci = columnIndex[tableColumn.identifier.rawValue] else { return nil }
+                  columnIndex[tableColumn.identifier.rawValue] != nil else { return nil }
             let cell = (outlineView.makeView(withIdentifier: tableColumn.identifier, owner: nil) as? HeatCellView) ?? {
                 let c = HeatCellView(frame: .zero)
                 c.identifier = tableColumn.identifier
                 return c
             }()
+            configure(cell, node: node, columnIdentifier: tableColumn.identifier)
+            return cell
+        }
+
+        private func configure(_ cell: HeatCellView, node: TableNode, columnIdentifier: NSUserInterfaceItemIdentifier) {
+            guard let ci = columnIndex[columnIdentifier.rawValue] else { return }
             let spec = parent.columns[ci]
             let d = node.data
             let text = ci < d.cells.count ? d.cells[ci] : ""
@@ -320,7 +360,6 @@ struct ProcessTableView: NSViewRepresentable {
                            heat: ci < d.heat.count ? d.heat[ci] : 0, alignment: spec.alignment,
                            isGroup: d.isGroup && ci == 0, monospaced: spec.monospacedDigits,
                            tooltip: d.tooltips[ci], accessibility: ci == 0 ? text : "\(name), \(spec.title): \(text)")
-            return cell
         }
 
         func outlineView(_ outlineView: NSOutlineView, sortDescriptorsDidChange oldDescriptors: [NSSortDescriptor]) {
@@ -336,11 +375,13 @@ struct ProcessTableView: NSViewRepresentable {
         func outlineViewItemDidExpand(_ notification: Notification) {
             if let node = notification.userInfo?["NSObject"] as? TableNode { expanded.insert(node.id) }
             reportVisible()
+            parent.onExpansionChange?(expanded)
         }
 
         func outlineViewItemDidCollapse(_ notification: Notification) {
             if let node = notification.userInfo?["NSObject"] as? TableNode { expanded.remove(node.id) }
             reportVisible()
+            parent.onExpansionChange?(expanded)
         }
 
         // MARK: Reporting

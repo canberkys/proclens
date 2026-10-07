@@ -7,6 +7,15 @@ settings:
   base:
     SWIFT_VERSION: "6.0"
     SWIFT_STRICT_CONCURRENCY: complete
+    DEAD_CODE_STRIPPING: YES
+  configs:
+    Release:
+      # Keep the bundle small: strip all symbols, drop dead code (DECISIONS: small binary).
+      DEPLOYMENT_POSTPROCESSING: YES
+      STRIP_INSTALLED_PRODUCT: YES
+      STRIP_STYLE: all
+      SWIFT_COMPILATION_MODE: wholemodule
+      DEBUG_INFORMATION_FORMAT: dwarf-with-dsym
 packages:
   ProcLensCore:
     path: ProcLensCore
