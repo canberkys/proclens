@@ -1,0 +1,56 @@
+name: ProcLens
+options:
+  bundleIdPrefix: com.canberkki
+  deploymentTarget:
+    macOS: "14.0"
+settings:
+  base:
+    SWIFT_VERSION: "6.0"
+    SWIFT_STRICT_CONCURRENCY: complete
+packages:
+  ProcLensCore:
+    path: ProcLensCore
+targets:
+  ProcLens:
+    type: application
+    platform: macOS
+    sources:
+      - path: ProcLens
+    dependencies:
+      - package: ProcLensCore
+        product: ProcLensCore
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.canberkki.ProcLens
+        PRODUCT_NAME: ProcLens
+        ENABLE_APP_SANDBOX: NO
+        ENABLE_HARDENED_RUNTIME: YES
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Manual
+        GENERATE_INFOPLIST_FILE: YES
+        INFOPLIST_KEY_LSApplicationCategoryType: public.app-category.utilities
+        INFOPLIST_KEY_CFBundleDisplayName: ProcLens
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
+        ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
+        MARKETING_VERSION: "0.1.0"
+        CURRENT_PROJECT_VERSION: "1"
+  # ProcLensHelper (Phase 2): privileged helper, SMAppService.daemon, embedded in the app bundle.
+  # ProcLensHelper:
+  #   type: tool
+  #   platform: macOS
+  #   sources: [ProcLensHelper]
+  # proclens CLI (Phase 3): shares ProcLensCore, JSON output.
+  # proclens:
+  #   type: tool
+  #   platform: macOS
+  #   sources: [proclens-cli]
+  #   dependencies:
+  #     - package: ProcLensCore
+  #       product: ProcLensCore
+schemes:
+  ProcLens:
+    build:
+      targets:
+        ProcLens: all
+    run:
+      config: Debug

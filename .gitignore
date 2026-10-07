@@ -1,0 +1,11 @@
+# Reference repos (read-only, never committed)
+third_party/_reference/
+
+# Xcode / SwiftPM
+*.xcodeproj
+xcuserdata/
+DerivedData/
+.build/
+.swiftpm/
+
+.DS_Store

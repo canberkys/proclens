@@ -1,0 +1,2446 @@
+{
+  "source": {
+    "repo": "tanRdev/lucid-task-manager",
+    "commit": "ee0bf35bae95a85c7bd373d1c419b058a6f443fd",
+    "license": "MIT",
+    "file": "Lucid/Lucid/Services/ProcessDictionary.swift"
+  },
+  "entries": [
+    {
+      "name": "1Password",
+      "title": "1Password Password Manager",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "APNSAgent",
+      "title": "Apple Push Notification Agent",
+      "origin": "system",
+      "section": "Notification & Communications"
+    },
+    {
+      "name": "Activity Monitor",
+      "title": "Activity Monitor",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "Adobe Illustrator",
+      "title": "Adobe Illustrator",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "Adobe Photoshop",
+      "title": "Adobe Photoshop",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "Adobe Premiere Pro",
+      "title": "Adobe Premiere Pro",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "AirDropAgent",
+      "title": "AirDrop Agent",
+      "origin": "system",
+      "section": "Misc System Services"
+    },
+    {
+      "name": "AirPlayUIAgent",
+      "title": "AirPlay UI Agent",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "AirPlayXPCHelper",
+      "title": "AirPlay Helper",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "AirPortBaseStationAgent",
+      "title": "AirPort Base Station Agent",
+      "origin": "system",
+      "section": "Misc System Services"
+    },
+    {
+      "name": "Alacritty",
+      "title": "Alacritty Terminal",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "Alfred",
+      "title": "Alfred Productivity App",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "App Store",
+      "title": "App Store Application",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "AppSSOAgent",
+      "title": "App Single Sign-On Agent",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "AppleSpell",
+      "title": "Spell Check Service",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "Arc",
+      "title": "Arc Web Browser",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "AssetCacheLocatorService",
+      "title": "Content Cache Locator",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "Atom",
+      "title": "Atom Editor",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "Bartender",
+      "title": "Bartender Menu Bar Manager",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "BiomeAgent",
+      "title": "Biome Agent",
+      "origin": "system",
+      "section": "Misc System Services"
+    },
+    {
+      "name": "Books",
+      "title": "Books Application",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "Brave Browser",
+      "title": "Brave Web Browser",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "Calendar",
+      "title": "Calendar Application",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "CalendarAgent",
+      "title": "Calendar Background Agent",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "CategoriesService",
+      "title": "Content Categories Service",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "Chrome Helper",
+      "title": "Chrome Helper Process",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "CleanMyMac X",
+      "title": "CleanMyMac Utility",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "Code Helper",
+      "title": "VS Code Helper Process",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "CommCenter",
+      "title": "Communication Center",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "Console",
+      "title": "Console Application",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "Contacts",
+      "title": "Contacts Application",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "ContactsAgent",
+      "title": "Contacts Background Agent",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "ContextStoreAgent",
+      "title": "Context Store Agent",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "ContinuityAgent",
+      "title": "Continuity Agent",
+      "origin": "system",
+      "section": "Continuity & Handoff"
+    },
+    {
+      "name": "Control Center",
+      "title": "Control Center",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "ControlCenter",
+      "title": "Control Center",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "CoreLocationAgent",
+      "title": "Location Agent",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "CoreServicesAccountAgent",
+      "title": "Core Services Account Agent",
+      "origin": "system",
+      "section": "Core Services"
+    },
+    {
+      "name": "CoreServicesUIAgent",
+      "title": "Core Services UI Agent",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "CoreTimeActivity",
+      "title": "Core Time Activity",
+      "origin": "system",
+      "section": "Core Services"
+    },
+    {
+      "name": "CrashReporterSupportHelper",
+      "title": "Crash Reporter Helper",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "DesktopServicesHelper",
+      "title": "Desktop Services Helper",
+      "origin": "system",
+      "section": "Misc System Services"
+    },
+    {
+      "name": "DictationIM",
+      "title": "Dictation Input Method",
+      "origin": "system",
+      "section": "Dictation & Input"
+    },
+    {
+      "name": "Discord",
+      "title": "Discord Communication",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "Discord Helper",
+      "title": "Discord Helper Process",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "Dock",
+      "title": "macOS Dock",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "Docker",
+      "title": "Docker Desktop",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "Docker Desktop",
+      "title": "Docker Desktop",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "Dropbox",
+      "title": "Dropbox Cloud Storage",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "FMCore",
+      "title": "Find My Core Service",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "FaceTime",
+      "title": "FaceTime Application",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "Family Sharing",
+      "title": "Family Sharing Service",
+      "origin": "system",
+      "section": "Misc System Services"
+    },
+    {
+      "name": "FamilyCircle",
+      "title": "Family Circle Agent",
+      "origin": "system",
+      "section": "Misc System Services"
+    },
+    {
+      "name": "Figma",
+      "title": "Figma Design Tool",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "Final Cut Pro",
+      "title": "Final Cut Pro",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "FindMyFriend",
+      "title": "Find My Friends Service",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "Finder",
+      "title": "macOS Finder",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "Firefox",
+      "title": "Firefox Web Browser",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "FontValidatorService",
+      "title": "Font Validator Service",
+      "origin": "system",
+      "section": "Misc System Services"
+    },
+    {
+      "name": "GameCenterUIService",
+      "title": "Game Center UI Service",
+      "origin": "system",
+      "section": "Misc System Services"
+    },
+    {
+      "name": "Google Chrome",
+      "title": "Chrome Web Browser",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "Google Chrome Helper",
+      "title": "Chrome Helper Process",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "Google Drive",
+      "title": "Google Drive Cloud Storage",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "HIDSystemServer",
+      "title": "Human Interface Device Server",
+      "origin": "system",
+      "section": "Misc System Services"
+    },
+    {
+      "name": "HandoffAgent",
+      "title": "Handoff Agent",
+      "origin": "system",
+      "section": "Continuity & Handoff"
+    },
+    {
+      "name": "IINA",
+      "title": "IINA Media Player",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "IMAutomaticHistoryDeletionAgent",
+      "title": "Message History Cleaner",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "IMDPersistenceAgent",
+      "title": "Message Persistence Agent",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "IMRemoteURLConnectionAgent",
+      "title": "Message URL Agent",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "InstallAssistant",
+      "title": "Install Assistant",
+      "origin": "system",
+      "section": "Misc System Services"
+    },
+    {
+      "name": "IntelliJ IDEA",
+      "title": "IntelliJ IDEA IDE",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "IntentsExtension",
+      "title": "Intents Extension",
+      "origin": "system",
+      "section": "Misc System Services"
+    },
+    {
+      "name": "KerberosAgent",
+      "title": "Kerberos Authentication Agent",
+      "origin": "system",
+      "section": "Misc System Services"
+    },
+    {
+      "name": "Keynote",
+      "title": "Keynote Presentation App",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "LaterAgent",
+      "title": "Notification Scheduling Agent",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "LaunchpadManager",
+      "title": "Launchpad Manager",
+      "origin": "system",
+      "section": "Dock & Launchpad"
+    },
+    {
+      "name": "LocalAuthenticationUIAgent",
+      "title": "Local Authentication UI",
+      "origin": "system",
+      "section": "Misc System Services"
+    },
+    {
+      "name": "MDCrashReportTool",
+      "title": "Crash Report Tool",
+      "origin": "system",
+      "section": "Misc System Services"
+    },
+    {
+      "name": "MRTd",
+      "title": "Malware Removal Tool Daemon",
+      "origin": "system",
+      "section": "Misc System Services"
+    },
+    {
+      "name": "MTLCompilerService",
+      "title": "Metal Compiler Service",
+      "origin": "system",
+      "section": "Misc System Services"
+    },
+    {
+      "name": "Magnet",
+      "title": "Magnet Window Manager",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "Mail",
+      "title": "Mail Application",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "Maps",
+      "title": "Maps Application",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "Messages",
+      "title": "Messages Application",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "Microsoft Excel",
+      "title": "Microsoft Excel",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "Microsoft Outlook",
+      "title": "Microsoft Outlook",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "Microsoft PowerPoint",
+      "title": "Microsoft PowerPoint",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "Microsoft Teams",
+      "title": "Microsoft Teams",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "Microsoft Word",
+      "title": "Microsoft Word",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "MonitorControl",
+      "title": "Monitor Control Utility",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "Music",
+      "title": "Music Application",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "NetworkConfigAgent",
+      "title": "Network Config Agent",
+      "origin": "system",
+      "section": "Misc System Services"
+    },
+    {
+      "name": "Notes",
+      "title": "Notes Application",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "NotificationCenter",
+      "title": "Notification Center",
+      "origin": "system",
+      "section": "Notification & Communications"
+    },
+    {
+      "name": "Notion",
+      "title": "Notion Workspace",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "Notion Helper",
+      "title": "Notion Helper Process",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "Numbers",
+      "title": "Numbers Spreadsheet App",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "Obsidian",
+      "title": "Obsidian Notes",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "OneDrive",
+      "title": "Microsoft OneDrive",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "Pages",
+      "title": "Pages Word Processor",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "PassbookUIService",
+      "title": "Passbook UI Service",
+      "origin": "system",
+      "section": "Misc System Services"
+    },
+    {
+      "name": "Photos",
+      "title": "Photos Application",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "Podcasts",
+      "title": "Podcasts Application",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "Postman",
+      "title": "Postman API Client",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "Preview",
+      "title": "Preview Application",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "PrinterProxy",
+      "title": "Printer Proxy",
+      "origin": "system",
+      "section": "Print Services"
+    },
+    {
+      "name": "PrintingService",
+      "title": "Printing Service",
+      "origin": "system",
+      "section": "Print Services"
+    },
+    {
+      "name": "PrivacyAgent",
+      "title": "Privacy Agent",
+      "origin": "system",
+      "section": "Privacy & Security"
+    },
+    {
+      "name": "PrivacyService",
+      "title": "Privacy Service",
+      "origin": "system",
+      "section": "Privacy & Security"
+    },
+    {
+      "name": "ProtectedCloudKeySyncing",
+      "title": "iCloud Key Sync",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "PyCharm",
+      "title": "PyCharm IDE",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "QLPreviewExtension",
+      "title": "Quick Look Preview Extension",
+      "origin": "system",
+      "section": "Finder Extensions"
+    },
+    {
+      "name": "QuickLookUIService",
+      "title": "Quick Look UI Service",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "Raycast",
+      "title": "Raycast Launcher",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "Rectangle",
+      "title": "Rectangle Window Manager",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "Reminders",
+      "title": "Reminders Application",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "Safari",
+      "title": "Safari Web Browser",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "SafariBookmarksSyncAgent",
+      "title": "Safari Bookmarks Sync",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "SafariCloudHistoryPushAgent",
+      "title": "Safari Cloud History Push",
+      "origin": "system",
+      "section": "Misc System Services"
+    },
+    {
+      "name": "ScopedBookmarkAgent",
+      "title": "Bookmark Scope Agent",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "ScreenTimeAgent",
+      "title": "Screen Time Agent",
+      "origin": "system",
+      "section": "Misc System Services"
+    },
+    {
+      "name": "Security",
+      "title": "Security Service",
+      "origin": "system",
+      "section": "Misc System Services"
+    },
+    {
+      "name": "Siri",
+      "title": "Siri Voice Assistant",
+      "origin": "system",
+      "section": "Siri & Intelligence"
+    },
+    {
+      "name": "SiriKitService",
+      "title": "SiriKit Service",
+      "origin": "system",
+      "section": "Siri & Intelligence"
+    },
+    {
+      "name": "SiriNCService",
+      "title": "Siri Notification Center Service",
+      "origin": "system",
+      "section": "Siri & Intelligence"
+    },
+    {
+      "name": "Slack",
+      "title": "Slack Messaging",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "Slack Helper",
+      "title": "Slack Helper Process",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "SocialPushAgent",
+      "title": "Social Push Agent",
+      "origin": "system",
+      "section": "Misc System Services"
+    },
+    {
+      "name": "SoftwareUpdateNotificationManager",
+      "title": "Software Update Notifications",
+      "origin": "system",
+      "section": "Updates & Maintenance"
+    },
+    {
+      "name": "Spotify",
+      "title": "Spotify Music",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "Spotify Helper",
+      "title": "Spotify Helper Process",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "SpotlightIndexingAgent",
+      "title": "Spotlight Indexing Agent",
+      "origin": "system",
+      "section": "Misc System Services"
+    },
+    {
+      "name": "Sublime Text",
+      "title": "Sublime Text Editor",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "SubmitDiagInfo",
+      "title": "Diagnostic Submission",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "System Preferences",
+      "title": "System Preferences",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "System Settings",
+      "title": "System Settings",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "SystemExtensionsHost",
+      "title": "System Extensions Host",
+      "origin": "system",
+      "section": "System Extensions"
+    },
+    {
+      "name": "SystemMigrationd",
+      "title": "System Migration Daemon",
+      "origin": "system",
+      "section": "System Extensions"
+    },
+    {
+      "name": "SystemPolicyAgent",
+      "title": "System Policy Agent",
+      "origin": "system",
+      "section": "System Extensions"
+    },
+    {
+      "name": "SystemUIServer",
+      "title": "System UI Server",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "TV",
+      "title": "Apple TV Application",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "Telegram",
+      "title": "Telegram Messaging",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "TelephonyUtilities",
+      "title": "Telephony Utilities",
+      "origin": "system",
+      "section": "Misc System Services"
+    },
+    {
+      "name": "Terminal",
+      "title": "Terminal Application",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "TextEdit",
+      "title": "Text Editor",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "TextInputSwitcher",
+      "title": "Text Input Switcher",
+      "origin": "system",
+      "section": "Dictation & Input"
+    },
+    {
+      "name": "The Unarchiver",
+      "title": "The Unarchiver",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "TimeMachine",
+      "title": "Time Machine",
+      "origin": "system",
+      "section": "Misc System Services"
+    },
+    {
+      "name": "TouchBarServer",
+      "title": "Touch Bar Server",
+      "origin": "system",
+      "section": "Misc System Services"
+    },
+    {
+      "name": "Transmission",
+      "title": "Transmission BitTorrent",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "UserAccountAgent",
+      "title": "User Account Agent",
+      "origin": "system",
+      "section": "Misc System Services"
+    },
+    {
+      "name": "UserEventAgent",
+      "title": "User Event Agent",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "VLC",
+      "title": "VLC Media Player",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "ViewBridgeAuxiliary",
+      "title": "View Bridge Service",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "Visual Studio Code",
+      "title": "VS Code Editor",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "VoiceOver",
+      "title": "VoiceOver Accessibility",
+      "origin": "system",
+      "section": "Misc System Services"
+    },
+    {
+      "name": "WallpaperAgent",
+      "title": "Wallpaper Agent",
+      "origin": "system",
+      "section": "Wallpaper & Desktop"
+    },
+    {
+      "name": "WallpaperExtension",
+      "title": "Wallpaper Extension",
+      "origin": "system",
+      "section": "Wallpaper & Desktop"
+    },
+    {
+      "name": "WallpaperService",
+      "title": "Wallpaper Service",
+      "origin": "system",
+      "section": "Wallpaper & Desktop"
+    },
+    {
+      "name": "WeatherKitHelper",
+      "title": "WeatherKit Helper",
+      "origin": "system",
+      "section": "Weather Services"
+    },
+    {
+      "name": "WeatherKitService",
+      "title": "WeatherKit Service",
+      "origin": "system",
+      "section": "Weather Services"
+    },
+    {
+      "name": "WeatherWidget",
+      "title": "Weather Widget",
+      "origin": "system",
+      "section": "Weather Services"
+    },
+    {
+      "name": "WhatsApp",
+      "title": "WhatsApp Messaging",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "WiFiAgent",
+      "title": "WiFi Agent",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "WiFiDiagnosticsAgent",
+      "title": "WiFi Diagnostics Agent",
+      "origin": "system",
+      "section": "WiFi & Networking"
+    },
+    {
+      "name": "WiFiNetworkDiagnostics",
+      "title": "WiFi Network Diagnostics",
+      "origin": "system",
+      "section": "WiFi & Networking"
+    },
+    {
+      "name": "WiFiProximityAgent",
+      "title": "WiFi Proximity Agent",
+      "origin": "system",
+      "section": "WiFi & Networking"
+    },
+    {
+      "name": "WiFiVelocity",
+      "title": "WiFi Velocity Service",
+      "origin": "system",
+      "section": "Misc System Services"
+    },
+    {
+      "name": "WiFiVelocityAgent",
+      "title": "WiFi Velocity Agent",
+      "origin": "system",
+      "section": "WiFi & Networking"
+    },
+    {
+      "name": "WindowManager",
+      "title": "Window Manager",
+      "origin": "system",
+      "section": "Window Server & Graphics"
+    },
+    {
+      "name": "WindowServer",
+      "title": "Window Manager",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "XProtectPlugin",
+      "title": "Malware Protection Plugin",
+      "origin": "system",
+      "section": "XProtect Services (Malware Protection)"
+    },
+    {
+      "name": "XProtectPluginService",
+      "title": "Malware Protection Plugin Service",
+      "origin": "system",
+      "section": "XProtect Services (Malware Protection)"
+    },
+    {
+      "name": "XProtectRemediatorEngine",
+      "title": "Malware Remediation Engine",
+      "origin": "system",
+      "section": "XProtect Services (Malware Protection)"
+    },
+    {
+      "name": "Xcode",
+      "title": "Xcode IDE",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "XprotectFrameworkService",
+      "title": "XProtect Framework Service",
+      "origin": "system",
+      "section": "XProtect Services (Malware Protection)"
+    },
+    {
+      "name": "XprotectService",
+      "title": "Malware Protection Service",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "Zoom",
+      "title": "Zoom Video Conferencing",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "accountsd",
+      "title": "Accounts Framework",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "airportd",
+      "title": "WiFi Manager",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "amfird",
+      "title": "App Management Framework",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "ant",
+      "title": "Apache Ant Build Tool",
+      "origin": "user",
+      "section": "Build Tools"
+    },
+    {
+      "name": "apache2",
+      "title": "Apache HTTP Server",
+      "origin": "user",
+      "section": "Web Servers"
+    },
+    {
+      "name": "appleh13camerad",
+      "title": "Camera Daemon",
+      "origin": "system",
+      "section": "Misc System Services"
+    },
+    {
+      "name": "appstoreagent",
+      "title": "App Store Agent",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "apsd",
+      "title": "Apple Push Notification Service",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "assistant_service",
+      "title": "Assistant Service",
+      "origin": "system",
+      "section": "Siri & Intelligence"
+    },
+    {
+      "name": "assistantd",
+      "title": "Assistant Daemon",
+      "origin": "system",
+      "section": "Siri & Intelligence"
+    },
+    {
+      "name": "authd",
+      "title": "Authorization Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "babel",
+      "title": "Babel JavaScript Compiler",
+      "origin": "user",
+      "section": "Build Tools"
+    },
+    {
+      "name": "bash",
+      "title": "Bash Shell (Command Line)",
+      "origin": "system",
+      "section": "Shell & Command Line (System)"
+    },
+    {
+      "name": "biometrickitd",
+      "title": "Touch ID & Face ID Manager",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "bird",
+      "title": "iCloud Sync Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "blued",
+      "title": "Bluetooth Server",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "bluetoothd",
+      "title": "Bluetooth Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "brew",
+      "title": "Homebrew Package Manager",
+      "origin": "user",
+      "section": "Package Managers & Tools"
+    },
+    {
+      "name": "bun",
+      "title": "Bun JavaScript Runtime",
+      "origin": "user",
+      "section": "Development Tools"
+    },
+    {
+      "name": "bundler",
+      "title": "Ruby Bundler",
+      "origin": "user",
+      "section": "Package Managers & Tools"
+    },
+    {
+      "name": "calaccessd",
+      "title": "Calendar Access Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "cargo",
+      "title": "Rust Package Manager",
+      "origin": "user",
+      "section": "Development Tools"
+    },
+    {
+      "name": "cfprefsd",
+      "title": "Preferences Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "clang",
+      "title": "LLVM C Compiler",
+      "origin": "user",
+      "section": "Development Tools"
+    },
+    {
+      "name": "cloudd",
+      "title": "iCloud Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "cloudpaird",
+      "title": "iCloud Device Pairing",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "cloudphotod",
+      "title": "iCloud Photos Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "cmake",
+      "title": "CMake Build System",
+      "origin": "user",
+      "section": "Build Tools"
+    },
+    {
+      "name": "colorsync.displayservices",
+      "title": "ColorSync Display Services",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "com.apple.MobileAsset",
+      "title": "Mobile Asset Service",
+      "origin": "system",
+      "section": "Updates & Maintenance"
+    },
+    {
+      "name": "com.apple.Safari.History",
+      "title": "Safari History Service",
+      "origin": "system",
+      "section": "Misc System Services"
+    },
+    {
+      "name": "com.apple.Safari.SafeBrowsing.Service",
+      "title": "Safari Safe Browsing",
+      "origin": "system",
+      "section": "Misc System Services"
+    },
+    {
+      "name": "com.apple.WindowManager",
+      "title": "Window Manager Service",
+      "origin": "system",
+      "section": "Window Server & Graphics"
+    },
+    {
+      "name": "com.apple.coreservices.uiagent",
+      "title": "Core Services UI Agent",
+      "origin": "system",
+      "section": "Continuity & Handoff"
+    },
+    {
+      "name": "com.apple.dock.extras",
+      "title": "Dock Extras",
+      "origin": "system",
+      "section": "Dock & Launchpad"
+    },
+    {
+      "name": "com.apple.iCloudHelper",
+      "title": "iCloud Helper Service",
+      "origin": "system",
+      "section": "iCloud Services"
+    },
+    {
+      "name": "com.apple.mdworker",
+      "title": "Spotlight Worker Process",
+      "origin": "system",
+      "section": "Spotlight & Search"
+    },
+    {
+      "name": "com.apple.notificationcenterui",
+      "title": "Notification Center UI",
+      "origin": "system",
+      "section": "Notification & Communications"
+    },
+    {
+      "name": "com.apple.quicklook",
+      "title": "Quick Look Service",
+      "origin": "system",
+      "section": "Finder Extensions"
+    },
+    {
+      "name": "com.apple.speech.synthesisserver",
+      "title": "Speech Synthesis Server",
+      "origin": "system",
+      "section": "Dictation & Input"
+    },
+    {
+      "name": "com.docker.backend",
+      "title": "Docker Backend",
+      "origin": "user",
+      "section": "Docker & Containers"
+    },
+    {
+      "name": "com.docker.cli",
+      "title": "Docker CLI",
+      "origin": "user",
+      "section": "Docker & Containers"
+    },
+    {
+      "name": "com.docker.supervisor",
+      "title": "Docker Supervisor",
+      "origin": "user",
+      "section": "Docker & Containers"
+    },
+    {
+      "name": "composer",
+      "title": "PHP Composer",
+      "origin": "user",
+      "section": "Package Managers & Tools"
+    },
+    {
+      "name": "conda",
+      "title": "Conda Package Manager",
+      "origin": "user",
+      "section": "Package Managers & Tools"
+    },
+    {
+      "name": "configd",
+      "title": "Configuration Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "containerd",
+      "title": "Container Runtime",
+      "origin": "user",
+      "section": "Docker & Containers"
+    },
+    {
+      "name": "coreTelephonyNotificationAgent",
+      "title": "Telephony Notification Agent",
+      "origin": "system",
+      "section": "Core Services"
+    },
+    {
+      "name": "coreaudiod",
+      "title": "Core Audio Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "corecaptured",
+      "title": "Core Capture Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "coreduetd",
+      "title": "Core Duet Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "corekdld",
+      "title": "Core Kernel Debug Link",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "coreservicesd",
+      "title": "Core Services Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "corespeechd",
+      "title": "Core Speech Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "coresymbolicationd",
+      "title": "Core Symbolication Daemon",
+      "origin": "system",
+      "section": "Core Services"
+    },
+    {
+      "name": "cupsd",
+      "title": "CUPS Print Server",
+      "origin": "system",
+      "section": "Print Services"
+    },
+    {
+      "name": "deleted",
+      "title": "Deleted Process Cache",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "deno",
+      "title": "Deno Runtime",
+      "origin": "user",
+      "section": "Development Tools"
+    },
+    {
+      "name": "diagnostics_agent",
+      "title": "Diagnostics Agent",
+      "origin": "system",
+      "section": "Misc System Services"
+    },
+    {
+      "name": "discoveryd",
+      "title": "Network Discovery Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "displaypolicyd",
+      "title": "Display Policy Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "displayservicesd",
+      "title": "Display Services Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "distnoted",
+      "title": "Distributed Notification Service",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "docker-compose",
+      "title": "Docker Compose",
+      "origin": "user",
+      "section": "Docker & Containers"
+    },
+    {
+      "name": "dockerd",
+      "title": "Docker Daemon",
+      "origin": "user",
+      "section": "Docker & Containers"
+    },
+    {
+      "name": "dprivacyd",
+      "title": "Display Privacy Daemon",
+      "origin": "system",
+      "section": "Misc System Services"
+    },
+    {
+      "name": "emacs",
+      "title": "Emacs Editor",
+      "origin": "user",
+      "section": "Shell & Terminal Tools"
+    },
+    {
+      "name": "esbuild",
+      "title": "ESBuild Bundler",
+      "origin": "user",
+      "section": "Build Tools"
+    },
+    {
+      "name": "eslint",
+      "title": "ESLint Linter",
+      "origin": "user",
+      "section": "Build Tools"
+    },
+    {
+      "name": "familycircled",
+      "title": "Family Sharing Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "fileproviderd",
+      "title": "File Provider Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "findmydeviced",
+      "title": "Find My Device Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "fish",
+      "title": "Fish Shell (Command Line)",
+      "origin": "system",
+      "section": "Shell & Command Line (System)"
+    },
+    {
+      "name": "fontd",
+      "title": "Font Management Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "fseventsd",
+      "title": "File System Events Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "gamecontrollerd",
+      "title": "Game Controller Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "gcc",
+      "title": "GNU C Compiler",
+      "origin": "user",
+      "section": "Development Tools"
+    },
+    {
+      "name": "gem",
+      "title": "Ruby Package Manager",
+      "origin": "user",
+      "section": "Package Managers & Tools"
+    },
+    {
+      "name": "geod",
+      "title": "Location Services Daemon",
+      "origin": "system",
+      "section": "Misc System Services"
+    },
+    {
+      "name": "gh",
+      "title": "GitHub CLI",
+      "origin": "user",
+      "section": "Version Control"
+    },
+    {
+      "name": "git",
+      "title": "Git Version Control",
+      "origin": "user",
+      "section": "Version Control"
+    },
+    {
+      "name": "git-credential-osxkeychain",
+      "title": "Git Credential Helper",
+      "origin": "user",
+      "section": "Version Control"
+    },
+    {
+      "name": "go",
+      "title": "Go Programming Language",
+      "origin": "user",
+      "section": "Development Tools"
+    },
+    {
+      "name": "gradle",
+      "title": "Gradle Build Tool",
+      "origin": "user",
+      "section": "Build Tools"
+    },
+    {
+      "name": "hg",
+      "title": "Mercurial Version Control",
+      "origin": "user",
+      "section": "Version Control"
+    },
+    {
+      "name": "hidd",
+      "title": "Human Interface Device Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "httpd",
+      "title": "Apache HTTP Server",
+      "origin": "user",
+      "section": "Web Servers"
+    },
+    {
+      "name": "hub",
+      "title": "GitHub Hub CLI",
+      "origin": "user",
+      "section": "Version Control"
+    },
+    {
+      "name": "iCloudDrive",
+      "title": "iCloud Drive",
+      "origin": "system",
+      "section": "iCloud Services"
+    },
+    {
+      "name": "iCloudHelper",
+      "title": "iCloud Helper",
+      "origin": "system",
+      "section": "iCloud Services"
+    },
+    {
+      "name": "iTerm2",
+      "title": "iTerm2 Terminal",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "iTunes",
+      "title": "iTunes Application",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "iconservicesagent",
+      "title": "Icon Services Agent",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "iconservicesd",
+      "title": "Icon Services Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "identityservicesd",
+      "title": "Identity Services Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "imagent",
+      "title": "iMessage Agent",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "jasmine",
+      "title": "Jasmine Test Runner",
+      "origin": "user",
+      "section": "Build Tools"
+    },
+    {
+      "name": "java",
+      "title": "Java Runtime",
+      "origin": "user",
+      "section": "Development Tools"
+    },
+    {
+      "name": "javac",
+      "title": "Java Compiler",
+      "origin": "user",
+      "section": "Development Tools"
+    },
+    {
+      "name": "jest",
+      "title": "Jest Test Runner",
+      "origin": "user",
+      "section": "Build Tools"
+    },
+    {
+      "name": "karma",
+      "title": "Karma Test Runner",
+      "origin": "user",
+      "section": "Build Tools"
+    },
+    {
+      "name": "kbd",
+      "title": "Keyboard Services",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "kernel",
+      "title": "Kernel Process",
+      "origin": "system",
+      "section": "Misc System Services"
+    },
+    {
+      "name": "kernel_task",
+      "title": "macOS Kernel",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "kernelmanagerd",
+      "title": "Kernel Extension Manager",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "kextd",
+      "title": "Kernel Extension Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "keybagd",
+      "title": "Keychain Keybag Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "keyboardmigrator",
+      "title": "Keyboard Migrator",
+      "origin": "system",
+      "section": "Misc System Services"
+    },
+    {
+      "name": "keyboardservicesd",
+      "title": "Keyboard Services Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "ksh",
+      "title": "Korn Shell",
+      "origin": "user",
+      "section": "Shell & Terminal Tools"
+    },
+    {
+      "name": "kubectl",
+      "title": "Kubernetes CLI",
+      "origin": "user",
+      "section": "Docker & Containers"
+    },
+    {
+      "name": "languageassetd",
+      "title": "Language Asset Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "launchd",
+      "title": "System Launch Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "locationd",
+      "title": "Location Services Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "loginwindow",
+      "title": "Login Window Manager",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "lsd",
+      "title": "Launch Services Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "make",
+      "title": "GNU Make Build Tool",
+      "origin": "user",
+      "section": "Build Tools"
+    },
+    {
+      "name": "mariadb",
+      "title": "MariaDB Database",
+      "origin": "user",
+      "section": "Databases"
+    },
+    {
+      "name": "maven",
+      "title": "Maven Build Tool",
+      "origin": "user",
+      "section": "Build Tools"
+    },
+    {
+      "name": "mdflagwriter",
+      "title": "Spotlight Flag Writer",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "mds",
+      "title": "Spotlight Metadata Server",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "mds_stores",
+      "title": "Spotlight Search Indexer",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "mdutil",
+      "title": "Spotlight Utility",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "mdworker",
+      "title": "Spotlight Worker",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "mdworker_shared",
+      "title": "Spotlight Shared Worker",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "mediaremoted",
+      "title": "Media Remote Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "mediaserverd",
+      "title": "Media Server Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "memcached",
+      "title": "Memcached Server",
+      "origin": "user",
+      "section": "Databases"
+    },
+    {
+      "name": "mobileassetd",
+      "title": "Mobile Asset Daemon",
+      "origin": "system",
+      "section": "Updates & Maintenance"
+    },
+    {
+      "name": "mocha",
+      "title": "Mocha Test Runner",
+      "origin": "user",
+      "section": "Build Tools"
+    },
+    {
+      "name": "mongo",
+      "title": "MongoDB Client",
+      "origin": "user",
+      "section": "Databases"
+    },
+    {
+      "name": "mongod",
+      "title": "MongoDB Database",
+      "origin": "user",
+      "section": "Databases"
+    },
+    {
+      "name": "mysql",
+      "title": "MySQL Client",
+      "origin": "user",
+      "section": "Databases"
+    },
+    {
+      "name": "mysqld",
+      "title": "MySQL Database Server",
+      "origin": "user",
+      "section": "Databases"
+    },
+    {
+      "name": "nano",
+      "title": "Nano Editor",
+      "origin": "user",
+      "section": "Shell & Terminal Tools"
+    },
+    {
+      "name": "nearbyd",
+      "title": "Nearby Interaction Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "netbiosd",
+      "title": "NetBIOS Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "networkd",
+      "title": "Network Management Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "networkserviceproxy",
+      "title": "Network Service Proxy",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "nfcd",
+      "title": "NFC Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "nginx",
+      "title": "Nginx Web Server",
+      "origin": "user",
+      "section": "Web Servers"
+    },
+    {
+      "name": "node",
+      "title": "Node.js Runtime",
+      "origin": "user",
+      "section": "Development Tools"
+    },
+    {
+      "name": "notificationcenterui",
+      "title": "Notification Center UI",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "notifyd",
+      "title": "Notification Server",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "npm",
+      "title": "Node Package Manager",
+      "origin": "user",
+      "section": "Development Tools"
+    },
+    {
+      "name": "nsurlsessiond",
+      "title": "URL Session Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "nsurlstoraged",
+      "title": "URL Storage Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "nvim",
+      "title": "Neovim Editor",
+      "origin": "user",
+      "section": "Shell & Terminal Tools"
+    },
+    {
+      "name": "opendirectoryd",
+      "title": "Directory Services",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "parcel",
+      "title": "Parcel Bundler",
+      "origin": "user",
+      "section": "Build Tools"
+    },
+    {
+      "name": "parentalcontrolsd",
+      "title": "Parental Controls",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "parsecd",
+      "title": "Parsing Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "pbs",
+      "title": "Pasteboard Server",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "perl",
+      "title": "Perl Interpreter",
+      "origin": "user",
+      "section": "Development Tools"
+    },
+    {
+      "name": "php",
+      "title": "PHP Interpreter",
+      "origin": "user",
+      "section": "Development Tools"
+    },
+    {
+      "name": "pip",
+      "title": "Python Package Installer",
+      "origin": "user",
+      "section": "Package Managers & Tools"
+    },
+    {
+      "name": "pip3",
+      "title": "Python 3 Package Installer",
+      "origin": "user",
+      "section": "Package Managers & Tools"
+    },
+    {
+      "name": "pkd",
+      "title": "Extension Manager",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "pnpm",
+      "title": "PNPM Package Manager",
+      "origin": "user",
+      "section": "Development Tools"
+    },
+    {
+      "name": "podman",
+      "title": "Podman Container Tool",
+      "origin": "user",
+      "section": "Docker & Containers"
+    },
+    {
+      "name": "postgres",
+      "title": "PostgreSQL Database",
+      "origin": "user",
+      "section": "Databases"
+    },
+    {
+      "name": "postgresql",
+      "title": "PostgreSQL Database",
+      "origin": "user",
+      "section": "Databases"
+    },
+    {
+      "name": "powerd",
+      "title": "Power Management Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "prettier",
+      "title": "Prettier Code Formatter",
+      "origin": "user",
+      "section": "Build Tools"
+    },
+    {
+      "name": "privacyd",
+      "title": "Privacy Daemon",
+      "origin": "system",
+      "section": "Privacy & Security"
+    },
+    {
+      "name": "python",
+      "title": "Python Interpreter",
+      "origin": "user",
+      "section": "Development Tools"
+    },
+    {
+      "name": "python2",
+      "title": "Python 2 Interpreter",
+      "origin": "user",
+      "section": "Development Tools"
+    },
+    {
+      "name": "python3",
+      "title": "Python 3 Interpreter",
+      "origin": "user",
+      "section": "Development Tools"
+    },
+    {
+      "name": "quicklookd",
+      "title": "Quick Look Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "rapportd",
+      "title": "Continuity Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "redis-cli",
+      "title": "Redis Client",
+      "origin": "user",
+      "section": "Databases"
+    },
+    {
+      "name": "redis-server",
+      "title": "Redis Cache Server",
+      "origin": "user",
+      "section": "Databases"
+    },
+    {
+      "name": "remoted",
+      "title": "Remote Daemon",
+      "origin": "system",
+      "section": "Misc System Services"
+    },
+    {
+      "name": "replayd",
+      "title": "Screen Recording Service",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "revisiond",
+      "title": "iCloud Versions Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "rollup",
+      "title": "Rollup Bundler",
+      "origin": "user",
+      "section": "Build Tools"
+    },
+    {
+      "name": "ruby",
+      "title": "Ruby Interpreter",
+      "origin": "user",
+      "section": "Development Tools"
+    },
+    {
+      "name": "rustc",
+      "title": "Rust Compiler",
+      "origin": "user",
+      "section": "Development Tools"
+    },
+    {
+      "name": "sandboxd",
+      "title": "Sandbox Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "screen",
+      "title": "GNU Screen",
+      "origin": "user",
+      "section": "Shell & Terminal Tools"
+    },
+    {
+      "name": "screencaptureui",
+      "title": "Screenshot UI",
+      "origin": "system",
+      "section": "Misc System Services"
+    },
+    {
+      "name": "searchpartyd",
+      "title": "Spotlight Party Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "secd",
+      "title": "Security Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "secinitd",
+      "title": "Security Initialization",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "securityd",
+      "title": "Security Framework Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "seserviced",
+      "title": "System Events Service",
+      "origin": "system",
+      "section": "Misc System Services"
+    },
+    {
+      "name": "sh",
+      "title": "Bourne Shell (Command Line)",
+      "origin": "system",
+      "section": "Shell & Command Line (System)"
+    },
+    {
+      "name": "sharingd",
+      "title": "Sharing Services Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "socketfilterfw",
+      "title": "Application Firewall",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "softwareupdated",
+      "title": "Software Update Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "sqlite3",
+      "title": "SQLite Database",
+      "origin": "user",
+      "section": "Databases"
+    },
+    {
+      "name": "storeassetd",
+      "title": "App Store Asset Manager",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "storedownloadd",
+      "title": "App Store Download Manager",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "svn",
+      "title": "Subversion Version Control",
+      "origin": "user",
+      "section": "Version Control"
+    },
+    {
+      "name": "swcd",
+      "title": "Software Update Control",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "swift",
+      "title": "Swift Compiler",
+      "origin": "user",
+      "section": "Development Tools"
+    },
+    {
+      "name": "swiftc",
+      "title": "Swift Compiler",
+      "origin": "user",
+      "section": "Development Tools"
+    },
+    {
+      "name": "symptomsd",
+      "title": "Network Symptoms Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "syncdefaultsd",
+      "title": "Sync Defaults Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "syslogd",
+      "title": "System Logging Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "sysmond",
+      "title": "System Monitor Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "talagent",
+      "title": "Time and Location Agent",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "tccd",
+      "title": "Privacy Preferences Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "tcsh",
+      "title": "TCSH Shell",
+      "origin": "user",
+      "section": "Shell & Terminal Tools"
+    },
+    {
+      "name": "thermald",
+      "title": "Thermal Management",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "tmhelper",
+      "title": "Time Machine Helper",
+      "origin": "system",
+      "section": "Misc System Services"
+    },
+    {
+      "name": "tmux",
+      "title": "Terminal Multiplexer",
+      "origin": "user",
+      "section": "Shell & Terminal Tools"
+    },
+    {
+      "name": "trustd",
+      "title": "Certificate Trust Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "tsc",
+      "title": "TypeScript Compiler",
+      "origin": "user",
+      "section": "Build Tools"
+    },
+    {
+      "name": "universalaccessAuthWarn",
+      "title": "Accessibility Warning",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "universalaccessd",
+      "title": "Accessibility Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "usbd",
+      "title": "USB Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "useractivityd",
+      "title": "User Activity Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "videosubscriptionsd",
+      "title": "Video Subscriptions Service",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "vim",
+      "title": "Vim Text Editor",
+      "origin": "user",
+      "section": "Shell & Terminal Tools"
+    },
+    {
+      "name": "vite",
+      "title": "Vite Build Tool",
+      "origin": "user",
+      "section": "Build Tools"
+    },
+    {
+      "name": "vitest",
+      "title": "Vitest Test Runner",
+      "origin": "user",
+      "section": "Build Tools"
+    },
+    {
+      "name": "wallpaperd",
+      "title": "Wallpaper Daemon",
+      "origin": "system",
+      "section": "Wallpaper & Desktop"
+    },
+    {
+      "name": "warmd",
+      "title": "System Warmup Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "watchdogd",
+      "title": "Watchdog Daemon",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "weatherd",
+      "title": "Weather Daemon",
+      "origin": "system",
+      "section": "Weather Services"
+    },
+    {
+      "name": "webpack",
+      "title": "Webpack Bundler",
+      "origin": "user",
+      "section": "Build Tools"
+    },
+    {
+      "name": "wifip2pd",
+      "title": "WiFi Peer-to-Peer",
+      "origin": "system",
+      "section": "Core macOS System Processes (Green - System)"
+    },
+    {
+      "name": "wifivelocityd",
+      "title": "WiFi Velocity Daemon",
+      "origin": "system",
+      "section": "WiFi & Networking"
+    },
+    {
+      "name": "windowserver",
+      "title": "Window Server",
+      "origin": "system",
+      "section": "Window Server & Graphics"
+    },
+    {
+      "name": "yarn",
+      "title": "Yarn Package Manager",
+      "origin": "user",
+      "section": "Development Tools"
+    },
+    {
+      "name": "zoom.us",
+      "title": "Zoom Video Conferencing",
+      "origin": "user",
+      "section": "User Applications (Yellow - User)"
+    },
+    {
+      "name": "zsh",
+      "title": "Z Shell (Command Line)",
+      "origin": "system",
+      "section": "Shell & Command Line (System)"
+    }
+  ]
+}

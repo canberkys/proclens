@@ -1,0 +1,203 @@
+{
+  "source": {
+    "repo": "timdreesen/simple-dev-server-viewer",
+    "commit": "b578c10c3a45895443a1dfea278462b5908d6c8e",
+    "license": "MIT",
+    "file": "src-tauri/src/lib.rs"
+  },
+  "rules": [
+    {
+      "needle": "next",
+      "framework": "Next.js",
+      "category": "web",
+      "confidence": 98
+    },
+    {
+      "needle": "astro",
+      "framework": "Astro",
+      "category": "web",
+      "confidence": 98
+    },
+    {
+      "needle": "vite",
+      "framework": "Vite",
+      "category": "web",
+      "confidence": 96
+    },
+    {
+      "needle": "nuxt",
+      "framework": "Nuxt",
+      "category": "web",
+      "confidence": 96
+    },
+    {
+      "needle": "svelte",
+      "framework": "SvelteKit",
+      "category": "web",
+      "confidence": 94
+    },
+    {
+      "needle": "remix",
+      "framework": "Remix",
+      "category": "web",
+      "confidence": 94
+    },
+    {
+      "needle": "ng serve",
+      "framework": "Angular",
+      "category": "web",
+      "confidence": 94
+    },
+    {
+      "needle": "webpack",
+      "framework": "webpack",
+      "category": "web",
+      "confidence": 90
+    },
+    {
+      "needle": "parcel",
+      "framework": "Parcel",
+      "category": "web",
+      "confidence": 90
+    },
+    {
+      "needle": "supabase",
+      "framework": "Supabase",
+      "category": "database",
+      "confidence": 98
+    },
+    {
+      "needle": "postgres",
+      "framework": "PostgreSQL",
+      "category": "database",
+      "confidence": 96
+    },
+    {
+      "needle": "mysqld",
+      "framework": "MySQL",
+      "category": "database",
+      "confidence": 96
+    },
+    {
+      "needle": "mariadb",
+      "framework": "MariaDB",
+      "category": "database",
+      "confidence": 96
+    },
+    {
+      "needle": "redis",
+      "framework": "Redis",
+      "category": "database",
+      "confidence": 96
+    },
+    {
+      "needle": "mongod",
+      "framework": "MongoDB",
+      "category": "database",
+      "confidence": 96
+    },
+    {
+      "needle": "elasticsearch",
+      "framework": "Elasticsearch",
+      "category": "database",
+      "confidence": 96
+    },
+    {
+      "needle": "deno",
+      "framework": "Deno",
+      "category": "runtime",
+      "confidence": 82
+    },
+    {
+      "needle": "bun",
+      "framework": "Bun",
+      "category": "runtime",
+      "confidence": 82
+    },
+    {
+      "needle": "node",
+      "framework": "Node.js",
+      "category": "runtime",
+      "confidence": 78
+    },
+    {
+      "needle": "python",
+      "framework": "Python",
+      "category": "runtime",
+      "confidence": 76
+    },
+    {
+      "needle": "dotnet",
+      "framework": ".NET",
+      "category": "runtime",
+      "confidence": 76
+    },
+    {
+      "needle": "rails",
+      "framework": "Rails",
+      "category": "web",
+      "confidence": 88
+    },
+    {
+      "needle": "php",
+      "framework": "PHP",
+      "category": "runtime",
+      "confidence": 72
+    }
+  ],
+  "portFallbacks": [
+    {
+      "ports": [
+        5432,
+        3306,
+        6379,
+        27017,
+        9200
+      ],
+      "label": "Database",
+      "category": "database",
+      "confidence": 65
+    },
+    {
+      "range": [
+        3000,
+        3999
+      ],
+      "label": "Local server",
+      "category": "web",
+      "confidence": 58
+    },
+    {
+      "ports": [
+        4173,
+        4200,
+        4321
+      ],
+      "label": "Local server",
+      "category": "web",
+      "confidence": 58
+    },
+    {
+      "range": [
+        5000,
+        5999
+      ],
+      "label": "Local server",
+      "category": "web",
+      "confidence": 58
+    },
+    {
+      "range": [
+        8000,
+        8999
+      ],
+      "label": "Local server",
+      "category": "web",
+      "confidence": 58
+    }
+  ],
+  "default": {
+    "label": "Unknown listener",
+    "confidence": 20
+  }
+}
