@@ -30,7 +30,11 @@ enum SidebarItem: String, CaseIterable, Identifiable {
 }
 
 struct ContentView: View {
+    #if DEBUG
+    @State private var selection: SidebarItem? = DebugSnapshot.initialTab ?? .processes
+    #else
     @State private var selection: SidebarItem? = .processes
+    #endif
 
     var body: some View {
         NavigationSplitView {

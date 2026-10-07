@@ -1,7 +1,26 @@
 import SwiftUI
 
 struct DetailsView: View {
+    @Environment(AppModel.self) private var model
+    @State private var vm = DetailsViewModel()
+
     var body: some View {
-        ContentUnavailableView("Details", systemImage: "tablecells", description: Text("Per-process details: PID, user, architecture, path and code-sign status."))
+        ProcessTableView(
+            autosaveName: "ProcLens.detailsTable",
+            columns: DetailsViewModel.columns,
+            rows: vm.rows,
+            sort: vm.sort,
+            onSortChange: { newSort in
+                guard newSort != vm.sort else { return }
+                vm.sort = newSort
+                vm.rebuild(model: model)
+            },
+            onVisibleIDsChange: { ids in Task { @MainActor in vm.setVisible(ids) } },
+            onSelectionChange: { ids in Task { @MainActor in vm.setSelected(ids) } }
+        )
+        .searchable(text: $vm.searchText, placement: .toolbar, prompt: "Search name, PID or path")
+        .navigationTitle("Details")
+        .onChange(of: model.latest?.tick, initial: true) { vm.rebuild(model: model) }
+        .onChange(of: vm.searchText) { vm.rebuild(model: model) }
     }
 }
