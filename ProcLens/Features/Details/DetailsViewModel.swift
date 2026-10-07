@@ -5,14 +5,14 @@ import ProcLensCore
 @Observable @MainActor
 final class DetailsViewModel {
     static let columns: [TableColumnSpec] = [
-        TableColumnSpec(id: "pid", title: "PID", width: 60, minWidth: 40, alignment: .right, monospacedDigits: true, canHide: false),
+        TableColumnSpec(id: "pid", title: "PID", width: 60, minWidth: 40, alignment: .right, monospacedDigits: true, canHide: false, spoken: true),
         TableColumnSpec(id: "name", title: "Name", width: 190, minWidth: 100, showsIcon: false, canHide: false),
         TableColumnSpec(id: "ppid", title: "PPID", width: 60, alignment: .right, monospacedDigits: true),
-        TableColumnSpec(id: "user", title: "User", width: 100),
+        TableColumnSpec(id: "user", title: "User", width: 100, spoken: true),
         TableColumnSpec(id: "arch", title: "Architecture", width: 110),
         TableColumnSpec(id: "threads", title: "Threads", width: 60, alignment: .right, monospacedDigits: true),
-        TableColumnSpec(id: "cpu", title: "CPU", width: 70, alignment: .right, monospacedDigits: true),
-        TableColumnSpec(id: "memory", title: "Memory", width: 85, alignment: .right, monospacedDigits: true),
+        TableColumnSpec(id: "cpu", title: "CPU", width: 70, alignment: .right, monospacedDigits: true, spoken: true),
+        TableColumnSpec(id: "memory", title: "Memory", width: 85, alignment: .right, monospacedDigits: true, spoken: true),
         TableColumnSpec(id: "path", title: "Path", width: 320, minWidth: 80),
         TableColumnSpec(id: "cmdline", title: "Command line", width: 360, minWidth: 80),
         TableColumnSpec(id: "start", title: "Start time", width: 140),
@@ -80,6 +80,7 @@ final class DetailsViewModel {
     }
 
     @ObservationIgnored private var nextRev: UInt64 = 0
+    @ObservationIgnored private var lastQuery = ""
 
     @ObservationIgnored private weak var model: AppModel?
     @ObservationIgnored private var statics: [ProcessID: Static] = [:]
@@ -178,6 +179,10 @@ final class DetailsViewModel {
         let asc = sort.ascending
         let infos = list.map { staticInfo(for: $0) }
         var order = Array(list.indices)
+        // Exact numeric PID match: always first and selected on a new search.
+        let exactPID = Int32(query)
+        var exactIdx: Int?
+        if let exactPID { exactIdx = list.firstIndex { $0.pid == exactPID } }
         switch key {
         case "pid", "ppid", "arch", "threads", "cpu", "memory", "start":
             let vals: [Double] = list.map { p in
@@ -214,6 +219,15 @@ final class DetailsViewModel {
                 if keys[i] != keys[j] { return asc ? keys[i] < keys[j] : keys[i] > keys[j] }
                 return list[i].pid < list[j].pid
             }
+        }
+
+        if let exactIdx, let pos = order.firstIndex(of: exactIdx) {
+            order.remove(at: pos)
+            order.insert(exactIdx, at: 0)
+        }
+        if query != lastQuery {
+            lastQuery = query
+            feed.newSearch(reveal: [], focus: exactIdx.map { list[$0].id })
         }
 
         var out: [TableRowData] = []

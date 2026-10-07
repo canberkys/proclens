@@ -29,6 +29,8 @@ struct TableColumnSpec: Identifiable, Sendable {
     var showsIcon = false
     var monospacedDigits = false
     var canHide = true
+    /// Included in the row's VoiceOver summary.
+    var spoken = false
 }
 
 /// One row, built once per snapshot by a view model. Cells are pre-formatted strings.
@@ -91,6 +93,16 @@ enum ProcessIcons {
 final class TableFeed {
     private(set) var rows: [TableRowData] = []
     var onPush: (([TableRowData]) -> Void)?
+    /// Bumped by the producer when the search query changes; the table then expands `reveal` and selects `focus`.
+    private(set) var searchToken = 0
+    private(set) var reveal: [NodeID] = []
+    private(set) var focus: ProcessID?
+
+    func newSearch(reveal: [NodeID], focus: ProcessID?) {
+        searchToken &+= 1
+        self.reveal = reveal
+        self.focus = focus
+    }
 
     func push(_ newRows: [TableRowData]) {
         rows = newRows

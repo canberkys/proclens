@@ -9,6 +9,7 @@ struct ProcLensApp: App {
         let model = AppModel()
         _model = State(initialValue: model)
         _actions = State(initialValue: ProcessActionCenter(model: model))
+        AppPresentation.applyStoredActivationPolicy()
     }
 
     var body: some Scene {
@@ -17,14 +18,17 @@ struct ProcLensApp: App {
                 .environment(model)
                 .environment(actions)
                 .processActionConfirmation(actions)
+                .globalHotKey()
                 .task {
                     model.start()
                     #if DEBUG
                     DebugSnapshot.scheduleIfRequested()
+                    PanelSnapshot.scheduleIfRequested()
                     #endif
                 }
                 .frame(minWidth: 900, minHeight: 600)
         }
+        .commands { ProcLensCommands() }
 
         MenuBarExtra {
             MenuBarContent()

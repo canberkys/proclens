@@ -22,6 +22,8 @@ final class AppModel {
     /// Same as `latest`, but only updated while the window is visible. Window views observe this one so a
     /// hidden window costs nothing per tick; the menu bar keeps using `latest` / `history`.
     private(set) var visibleSnapshot: SystemSnapshot?
+    /// True while the menu bar panel is open; keeps the full sampler (processes, GPU, network) running even if the window is hidden.
+    private(set) var isPanelOpen = false
     let protection = ProtectionPolicy()
 
     @ObservationIgnored private let processCollector = ProcessCollector(source: LiveProcessSource())
@@ -84,7 +86,7 @@ final class AppModel {
     /// show/hide cannot leave both (or neither) running.
     private func switchSampler() {
         guard started else { return }
-        let full = isWindowVisible
+        let full = isWindowVisible || isPanelOpen
         let previous = samplerSwitch
         samplerSwitch = Task { [sampler, lightSampler, processCollector] in
             await previous?.value
@@ -99,9 +101,33 @@ final class AppModel {
         }
     }
 
+    func setPanelOpen(_ open: Bool) {
+        guard open != isPanelOpen else { return }
+        let before = isWindowVisible || isPanelOpen
+        isPanelOpen = open
+        if (isWindowVisible || isPanelOpen) != before { switchSampler() }
+    }
+
     /// Full argv/env for the Details tab; read on demand, never on the hot path.
     func arguments(for id: ProcessID) async throws -> ProcArgs {
         try await processCollector.arguments(for: id)
+    }
+
+    /// Reads one process directly from libproc (one syscall). Used by actions so they work
+    /// even when the current snapshot has no process table (window hidden, light sampler).
+    func liveProcess(pid: pid_t) -> ProcessSample? {
+        let source = LiveProcessSource()
+        guard let info = try? source.taskAllInfo(pid) else { return nil }
+        return ProcessSample(id: info.processID, ppid: info.ppid, uid: info.uid, name: info.name,
+                             path: try? source.path(pid), threadCount: info.threadCount,
+                             isTranslated: info.isTranslated, cpu: 0, memory: 0, diskReadPerSec: 0,
+                             diskWritePerSec: 0, energy: 0, isRestricted: info.threadCount == 0)
+    }
+
+    /// True while `id` still names the same running process (guards against pid reuse).
+    func isAlive(_ id: ProcessID) -> Bool {
+        guard let info = try? LiveProcessSource().taskAllInfo(id.pid) else { return false }
+        return info.startTime == id.startTime || info.startTime == 0
     }
 
     func icon(for pid: pid_t) -> NSImage? {
@@ -169,9 +195,10 @@ final class AppModel {
             $0.canBecomeMain && $0.isVisible && !$0.isMiniaturized && $0.occlusionState.contains(.visible)
         }
         guard visible != isWindowVisible else { return }
+        let before = isWindowVisible || isPanelOpen
         isWindowVisible = visible
         if visible { visibleSnapshot = latest }
-        switchSampler()
+        if (isWindowVisible || isPanelOpen) != before { switchSampler() }
     }
 
     private func observeWorkspace() {

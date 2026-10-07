@@ -21,7 +21,7 @@ struct ProcessTableView: NSViewRepresentable {
          onVisibleIDsChange: (([ProcessID]) -> Void)? = nil,
          onSelectionChange: (([ProcessID]) -> Void)? = nil,
          onExpansionChange: ((Set<NodeID>) -> Void)? = nil,
-         handler: any ProcessActionHandler = LoggingProcessActionHandler()) {
+         handler: any ProcessActionHandler) {
         self.autosaveName = autosaveName
         self.columns = columns
         self.feed = feed
@@ -206,8 +206,32 @@ struct ProcessTableView: NSViewRepresentable {
                 }
                 outline.selectRowIndexes(set, byExtendingSelection: false)
             }
+            applySearchRequest(feed: attachedFeed)
             reportVisible()
             reportSelection()
+        }
+
+        private var lastSearchToken = 0
+
+        /// A new search expands the app rows that hold matching children and selects an exact PID match.
+        private func applySearchRequest(feed: TableFeed?) {
+            guard let feed, feed.searchToken != lastSearchToken else { return }
+            lastSearchToken = feed.searchToken
+            if !indexValid {
+                index.removeAll(keepingCapacity: true)
+                for node in flatten(roots) { index[node.id] = node }
+                indexValid = true
+            }
+            for id in feed.reveal {
+                if let node = index[id], !node.children.isEmpty, !outline.isItemExpanded(node) { outline.expandItem(node) }
+            }
+            if let focus = feed.focus, let node = index[.process(focus)] {
+                let r = outline.row(forItem: node)
+                if r >= 0 {
+                    outline.selectRowIndexes([r], byExtendingSelection: false)
+                    outline.scrollRowToVisible(r)
+                }
+            }
         }
 
         private func flatten(_ nodes: [TableNode]) -> [TableNode] {
@@ -338,6 +362,49 @@ struct ProcessTableView: NSViewRepresentable {
 
         // MARK: Delegate
 
+        func outlineView(_ outlineView: NSOutlineView, rowViewForItem item: Any) -> NSTableRowView? {
+            guard let node = item as? TableNode else { return nil }
+            let id = NSUserInterfaceItemIdentifier("ProcLensRow")
+            let row = (outline.makeView(withIdentifier: id, owner: nil) as? SummaryRowView) ?? {
+                let r = SummaryRowView(frame: .zero)
+                r.identifier = id
+                return r
+            }()
+            row.node = node
+            row.summarize = { [weak self] node in self?.summary(of: node) ?? "" }
+            return row
+        }
+
+        /// VoiceOver text for a row: "Google Chrome, CPU 3 percent, Memory 4.6 gigabytes".
+        private func summary(of node: TableNode) -> String {
+            let d = node.data
+            let cols = parent.columns
+            if d.isGroup {
+                let state = outline.isItemExpanded(node) ? "expanded" : "collapsed"
+                return "\(d.cells.first ?? ""), group, \(state)"
+            }
+            var parts: [String] = []
+            if let n = cols.firstIndex(where: { $0.id == "name" }), n < d.cells.count { parts.append(d.cells[n]) }
+            for (i, spec) in cols.enumerated() where spec.spoken && i < d.cells.count {
+                let v = d.cells[i]
+                if v.isEmpty || v == ProcessesViewModel.dash { continue }
+                parts.append("\(spec.title) \(Self.spoken(v))")
+            }
+            if !node.children.isEmpty {
+                parts.append("\(node.children.count) child processes, \(outline.isItemExpanded(node) ? "expanded" : "collapsed")")
+            }
+            return parts.joined(separator: ", ")
+        }
+
+        private static func spoken(_ v: String) -> String {
+            v.replacingOccurrences(of: "%", with: " percent")
+                .replacingOccurrences(of: " GB", with: " gigabytes")
+                .replacingOccurrences(of: " MB", with: " megabytes")
+                .replacingOccurrences(of: " KB", with: " kilobytes")
+                .replacingOccurrences(of: " bytes", with: " bytes")
+                .replacingOccurrences(of: "/s", with: " per second")
+        }
+
         func outlineView(_ outlineView: NSOutlineView, viewFor tableColumn: NSTableColumn?, item: Any) -> NSView? {
             guard let node = item as? TableNode, let tableColumn,
                   columnIndex[tableColumn.identifier.rawValue] != nil else { return nil }
@@ -439,9 +506,18 @@ struct ProcessTableView: NSViewRepresentable {
             if !ids.isEmpty { parent.handler.deletePressed(on: ids) }
         }
 
+        /// Return: expand/collapse selected rows that have children (apps, groups); the rest go to the handler.
         private func returnKey() {
-            let ids = selectedProcessIDs()
-            if !ids.isEmpty { parent.handler.open(ids) }
+            var rest: [ProcessID] = []
+            for r in outline.selectedRowIndexes {
+                guard let node = outline.item(atRow: r) as? TableNode else { continue }
+                if !node.children.isEmpty {
+                    if outline.isItemExpanded(node) { outline.collapseItem(node) } else { outline.expandItem(node) }
+                } else if let pid = node.id.processID {
+                    rest.append(pid)
+                }
+            }
+            if !rest.isEmpty { parent.handler.open(rest) }
         }
 
         @objc private func contextAction(_ sender: NSMenuItem) {
@@ -478,14 +554,16 @@ struct ProcessTableView: NSViewRepresentable {
             if row >= 0, !outline.selectedRowIndexes.contains(row) {
                 outline.selectRowIndexes([row], byExtendingSelection: false)
             }
+            // Group header rows get no process actions.
+            if row >= 0, (outline.item(atRow: row) as? TableNode)?.id.processID == nil { contextIDs = []; return }
             contextIDs = selectedProcessIDs()
             guard !contextIDs.isEmpty else { return }
-            for action in ProcessAction.allCases {
+            for entry in ProcessAction.menuLayout {
+                guard let action = entry else { menu.addItem(.separator()); continue }
                 let item = NSMenuItem(title: action.title, action: #selector(contextAction(_:)), keyEquivalent: "")
                 item.target = self
                 item.representedObject = action.rawValue
                 menu.addItem(item)
-                if action == .resume || action == .forceQuit { menu.addItem(.separator()) }
             }
         }
     }

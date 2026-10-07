@@ -1,8 +1,11 @@
+import ProcLensCore
 import SwiftUI
 
 struct ProcessesView: View {
     @Environment(AppModel.self) private var model
+    @Environment(ProcessActionCenter.self) private var actions
     @State private var vm = ProcessesViewModel()
+    @State private var selection: [ProcessID] = []
 
     var body: some View {
         VStack(spacing: 0) {
@@ -18,10 +21,13 @@ struct ProcessesView: View {
                     vm.sort = newSort
                     vm.rebuild(model: model)
                 },
-                onExpansionChange: { ids in Task { @MainActor in vm.expansionChanged(ids) } }
+                onSelectionChange: { ids in Task { @MainActor in selection = ids } },
+                onExpansionChange: { ids in Task { @MainActor in vm.expansionChanged(ids) } },
+                handler: CenterActionHandler(actions)
             )
         }
         .searchable(text: $vm.searchText, placement: .toolbar, prompt: "Search name, PID or path")
+        .toolbar { EndTaskToolbarItem(selection: selection) }
         .navigationTitle("Processes")
         .background {
             // `visibleSnapshot` stops updating while the window is hidden/occluded: no work then.

@@ -106,3 +106,14 @@ final class TableNode {
         self.children = data.children.map(TableNode.init)
     }
 }
+
+/// Row view whose VoiceOver label is computed on demand from the live node (never stale, no per-tick cost).
+final class SummaryRowView: NSTableRowView {
+    weak var node: TableNode?
+    var summarize: ((TableNode) -> String)?
+
+    override func accessibilityLabel() -> String? {
+        guard let node else { return nil }
+        return summarize?(node)
+    }
+}

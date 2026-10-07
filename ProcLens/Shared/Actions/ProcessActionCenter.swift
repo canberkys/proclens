@@ -28,7 +28,9 @@ final class ProcessActionCenter {
     /// Entry point for every UI surface. Destructive actions are confirmed first.
     func request(_ action: ProcessAction, on ids: [ProcessID]) {
         let table = model.latest?.processes?.processes ?? [:]
-        let targets = ids.compactMap { table[$0] }
+        let targets = ids.compactMap { id in
+            table[id] ?? model.liveProcess(pid: id.pid).flatMap { $0.id == id || id.startTime == 0 ? $0 : nil }
+        }
         guard !targets.isEmpty else {
             message = "The process is no longer running."
             return
@@ -63,7 +65,8 @@ final class ProcessActionCenter {
 
     /// "End process by PID" (⌘K) and PID search: resolves the live identity first.
     func requestEnd(pid: pid_t, force: Bool = false) {
-        guard let p = model.latest?.processes?.processes.values.first(where: { $0.pid == pid }) else {
+        guard let p = model.latest?.processes?.processes.values.first(where: { $0.pid == pid })
+                ?? model.liveProcess(pid: pid) else {
             message = "No process with PID \(pid)."
             return
         }
@@ -83,11 +86,10 @@ final class ProcessActionCenter {
     // MARK: - Private
 
     private func execute(_ action: ProcessAction, on targets: [ProcessSample]) {
-        let live = model.latest?.processes?.processes ?? [:]
         var failures: [String] = []
         for p in targets {
             // The pid may have been reused since the request: only act on the same process.
-            guard live[p.id] != nil else { continue }
+            guard model.isAlive(p.id) else { continue }
             if let error = send(action, to: p) { failures.append("\(p.name) (\(p.pid)): \(error)") }
         }
         if !failures.isEmpty { message = failures.joined(separator: "\n") }

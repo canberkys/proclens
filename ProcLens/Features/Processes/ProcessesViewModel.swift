@@ -12,8 +12,8 @@ final class ProcessesViewModel {
 
     static let columns: [TableColumnSpec] = [
         TableColumnSpec(id: "name", title: "Name", width: 280, minWidth: 140, showsIcon: true, canHide: false),
-        TableColumnSpec(id: "cpu", title: "CPU", width: 80, alignment: .right, monospacedDigits: true),
-        TableColumnSpec(id: "memory", title: "Memory", width: 90, alignment: .right, monospacedDigits: true),
+        TableColumnSpec(id: "cpu", title: "CPU", width: 80, alignment: .right, monospacedDigits: true, spoken: true),
+        TableColumnSpec(id: "memory", title: "Memory", width: 90, alignment: .right, monospacedDigits: true, spoken: true),
         TableColumnSpec(id: "energy", title: "Energy", width: 90, alignment: .right),
         TableColumnSpec(id: "disk", title: "Disk", width: 90, alignment: .right, monospacedDigits: true),
         TableColumnSpec(id: "network", title: "Network", width: 90, alignment: .right, hiddenByDefault: true,
@@ -135,6 +135,9 @@ final class ProcessesViewModel {
     @ObservationIgnored private var filteredKids: [ProcessID: [Entry]] = [:]
     @ObservationIgnored private var orderCache: [NodeID: (stamp: Stamp, list: [Entry])] = [:]
     @ObservationIgnored private var emitted: [NodeID: (stamp: Stamp, rows: [TableRowData])] = [:]
+    /// App rows holding matching children (expanded on a new search) and the exact PID match, if any.
+    @ObservationIgnored private var revealIDs: [NodeID] = []
+    @ObservationIgnored private var focusID: ProcessID?
     @ObservationIgnored private var expandedIDs: Set<NodeID> = [.group(.apps), .group(.background), .group(.system)]
     @ObservationIgnored private var nextRev: UInt64 = 0
     @ObservationIgnored private weak var lastModel: AppModel?
@@ -165,7 +168,8 @@ final class ProcessesViewModel {
             filterEpoch &+= 1
             dirty = true
         }
-        if query != lastQuery { lastQuery = query; filterEpoch &+= 1; dirty = true }
+        var queryChanged = false
+        if query != lastQuery { lastQuery = query; filterEpoch &+= 1; dirty = true; queryChanged = true }
         if table.processes.count != lastCount { lastCount = table.processes.count; dirty = true }
 
         // Pass 1: refresh samples; create entries for new processes.
@@ -208,6 +212,7 @@ final class ProcessesViewModel {
             }
         }
         if structureEpoch != epoch { rebuildFilter(query: query) }
+        if queryChanged { feed.newSearch(reveal: revealIDs, focus: focusID) }
 
         let ctx = Context(cores: Double(max(1, snapshot.cpu?.cores.count ?? 1)),
                           memTotal: Double(snapshot.memory?.total ?? 0))
@@ -277,6 +282,12 @@ final class ProcessesViewModel {
         structureEpoch = epoch
         filteredTop.removeAll(keepingCapacity: true)
         filteredKids.removeAll(keepingCapacity: true)
+        revealIDs = []
+        focusID = nil
+        if let pid = Int32(query), let hit = cache.values.first(where: { $0.s.pid == pid && topLevelOrKid($0) }) {
+            focusID = hit.s.id
+            if let owner = hit.owner, hit.group != .apps { revealIDs.append(.process(owner)) }
+        }
         for group in ProcessGroup.allCases {
             var list: [Entry] = []
             for e in topLevel[group] ?? [] {
@@ -286,6 +297,7 @@ final class ProcessesViewModel {
                     let shown = selfMatch ? kids : kids.filter { $0.matches(query) }
                     if !selfMatch && shown.isEmpty { continue }
                     filteredKids[e.s.id] = shown
+                    if !selfMatch { revealIDs.append(.process(e.s.id)) }
                     list.append(e)
                 } else if query.isEmpty || e.matches(query) {
                     list.append(e)
@@ -293,6 +305,11 @@ final class ProcessesViewModel {
             }
             filteredTop[group] = list
         }
+    }
+
+    /// Entries of dead processes can linger in `cache`; only live ones are in the structure.
+    private func topLevelOrKid(_ e: Entry) -> Bool {
+        topLevel[e.group]?.contains { $0 === e } == true || e.owner.flatMap { allKids[$0] }?.contains { $0 === e } == true
     }
 
     private func buildNode(_ e: Entry, ctx: Context, stamp: Stamp, freeze: Stamp) -> TableRowData {

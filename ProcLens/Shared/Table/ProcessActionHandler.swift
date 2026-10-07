@@ -1,22 +1,26 @@
 import Foundation
-import OSLog
 import ProcLensCore
 
-/// Actions a process table can request. Implementations arrive in a later step (SPEC §5 item 4).
+/// Actions a process table can request. Execution and confirmation live in `ProcessActionCenter`.
 enum ProcessAction: String, CaseIterable, Sendable {
     case quit, forceQuit, suspend, resume, revealInFinder, copyPath, copyPID
 
     var title: String {
         switch self {
-        case .quit: "End Task"
-        case .forceQuit: "Force Quit"
+        case .quit: "End task"
+        case .forceQuit: "Force quit"
         case .suspend: "Suspend"
         case .resume: "Resume"
         case .revealInFinder: "Reveal in Finder"
-        case .copyPath: "Copy Path"
+        case .copyPath: "Copy path"
         case .copyPID: "Copy PID"
         }
     }
+
+    /// Context-menu layout, Windows order; `nil` is a separator.
+    static let menuLayout: [ProcessAction?] = [
+        .quit, .forceQuit, nil, .suspend, .resume, nil, .revealInFinder, .copyPID, .copyPath,
+    ]
 }
 
 /// Receives user intent from the process tables. Tables never act on processes themselves.
@@ -24,29 +28,19 @@ enum ProcessAction: String, CaseIterable, Sendable {
 protocol ProcessActionHandler: AnyObject {
     /// A context-menu item was chosen.
     func perform(_ action: ProcessAction, on ids: [ProcessID])
-    /// Double-click or Return on process rows.
+    /// Return on process rows that cannot expand (double-click / Return on groups and apps toggle expansion in the table).
     func open(_ ids: [ProcessID])
-    /// Delete / Forward-Delete pressed with a selection.
+    /// Delete / Forward-Delete pressed with a selection: End task.
     func deletePressed(on ids: [ProcessID])
 }
 
-extension ProcessActionHandler {
-    func perform(_ action: ProcessAction, on ids: [ProcessID]) {
-        ProcessActionLog.logger.info("action \(action.rawValue, privacy: .public) on \(ids.count) process(es) (not implemented)")
-    }
-    func open(_ ids: [ProcessID]) {
-        ProcessActionLog.logger.info("open \(ids.count) process(es) (not implemented)")
-    }
-    func deletePressed(on ids: [ProcessID]) {
-        ProcessActionLog.logger.info("delete key on \(ids.count) process(es) (not implemented)")
-    }
-}
+/// Forwards table intent to the shared `ProcessActionCenter` (validation, confirmation, execution).
+@MainActor
+final class CenterActionHandler: ProcessActionHandler {
+    private let center: ProcessActionCenter
+    init(_ center: ProcessActionCenter) { self.center = center }
 
-enum ProcessActionLog {
-    static let logger = Logger(subsystem: "com.canberkki.ProcLens", category: "actions")
-}
-
-/// Default handler: logs only.
-final class LoggingProcessActionHandler: ProcessActionHandler {
-    init() {}
+    func perform(_ action: ProcessAction, on ids: [ProcessID]) { center.request(action, on: ids) }
+    func open(_ ids: [ProcessID]) {}
+    func deletePressed(on ids: [ProcessID]) { center.request(.quit, on: ids) }
 }
