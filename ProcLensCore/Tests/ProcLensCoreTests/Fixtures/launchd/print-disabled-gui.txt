@@ -1,0 +1,8 @@
+
+	disabled services = {
+		"com.example.helper.enabled" => enabled
+		"com.example.updater" => disabled
+		"com.apple.ManagedClientAgent.enrollagent" => disabled
+		"com.example.legacyformat" => false
+		"com.example.legacydisabled" => true
+	}

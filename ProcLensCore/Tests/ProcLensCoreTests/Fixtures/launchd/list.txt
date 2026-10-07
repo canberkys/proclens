@@ -1,0 +1,6 @@
+PID	Status	Label
+-	0	com.apple.SafariHistoryServiceAgent
+1426	0	com.apple.progressd
+1517	0	com.apple.cloudphotod
+1599	0	com.apple.Finder
+1597	0	com.apple.Dock.agent

@@ -1,0 +1,63 @@
+========================
+ Records for UID 501 : 0F8A3C2E-1111-4A5B-9C7D-0123456789AB
+========================
+
+ Items:
+
+ #1:
+                 UUID: 7B5E1A10-2222-4C3D-8E9F-AAAAAAAAAAAA
+                 Name: Example Sync
+       Developer Name: Example Software, Inc.
+      Team Identifier: ABCDE12345
+                 Type: app (0x2)
+                Flags: [  ] (0)
+          Disposition: [enabled, allowed, visible, notified] (0xb)
+           Identifier: 2.com.example.sync
+                  URL: file:///Applications/Example%20Sync.app/
+           Generation: 1
+    Bundle Identifier: com.example.sync
+    Embedded Item Identifiers:
+        #1: 4.com.example.sync.login
+        #2: 16.com.example.sync.agent
+
+ #2:
+                 UUID: 7B5E1A10-3333-4C3D-8E9F-BBBBBBBBBBBB
+                 Name: Example Sync Login Helper
+       Developer Name: Example Software, Inc.
+      Team Identifier: ABCDE12345
+                 Type: login item (0x4)
+                Flags: [  ] (0)
+          Disposition: [disabled, allowed, visible, notified] (0xa)
+           Identifier: 4.com.example.sync.login
+                  URL: Contents/Library/LoginItems/Login Helper.app
+    Parent Identifier: 2.com.example.sync
+
+ #3:
+                 UUID: 7B5E1A10-4444-4C3D-8E9F-CCCCCCCCCCCC
+                 Name: updater
+       Developer Name: (null)
+      Team Identifier: (null)
+                 Type: legacy agent (0x8008)
+                Flags: [ legacy ] (0x1)
+          Disposition: [enabled, disallowed, hidden, not notified] (0x1)
+           Identifier: 8.com.example.updater
+                  URL: file:///Users/test/Library/LaunchAgents/com.example.updater.plist
+      Executable Path: /Users/test/Library/Application Support/Example/updater
+
+========================
+ Records for UID 0 : 00000000-0000-0000-0000-000000000000
+========================
+
+ Items:
+
+ #1:
+                 UUID: 7B5E1A10-5555-4C3D-8E9F-DDDDDDDDDDDD
+                 Name: Example Privileged Helper
+       Developer Name: Example Software, Inc.
+      Team Identifier: ABCDE12345
+                 Type: legacy daemon (0x10008)
+                Flags: [ legacy ] (0x1)
+          Disposition: [enabled, allowed, visible, notified] (0xb)
+           Identifier: 16.com.example.sync.helper
+                  URL: file:///Library/LaunchDaemons/com.example.sync.helper.plist
+      Executable Path: /Library/PrivilegedHelperTools/com.example.sync.helper
