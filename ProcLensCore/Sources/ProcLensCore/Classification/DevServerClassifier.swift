@@ -73,11 +73,22 @@ public struct DevServerClassifier: Sendable {
     }
 
     /// `processName` is the process short name; `commandLine` is argv joined with spaces (may be empty).
-    public func classify(port: ListeningPort, processName: String, commandLine: String) -> DevServerMatch {
-        classify(port: Int(port.port), processName: processName, commandLine: commandLine)
+    /// Port-range guesses ("Local server") apply only to TCP listeners of non-system processes;
+    /// otherwise macOS daemons (rapportd, ControlCenter/AirPlay on 5000/7000) would flood the list.
+    public func classify(port: ListeningPort, processName: String, commandLine: String,
+                         executablePath: String? = nil, uid: uid_t? = nil) -> DevServerMatch {
+        let isSystem = (uid.map { $0 < 500 } ?? false) || Self.isSystemPath(executablePath)
+        return classify(port: Int(port.port), processName: processName, commandLine: commandLine,
+                        allowPortFallback: port.proto == .tcp && !isSystem)
     }
 
-    public func classify(port: Int, processName: String, commandLine: String) -> DevServerMatch {
+    static func isSystemPath(_ path: String?) -> Bool {
+        guard let path else { return false }
+        return ["/System/", "/usr/libexec/", "/usr/sbin/", "/sbin/"].contains { path.hasPrefix($0) }
+    }
+
+    public func classify(port: Int, processName: String, commandLine: String,
+                         allowPortFallback: Bool = true) -> DevServerMatch {
         let haystack = (processName + " " + commandLine).lowercased()
         var tokens: Set<Substring>?
         for (needle, rule) in rules {
@@ -92,7 +103,7 @@ public struct DevServerClassifier: Sendable {
             return DevServerMatch(framework: rule.framework, category: Self.category(rule.category),
                                   confidence: rule.confidence)
         }
-        for fb in fallbacks where fb.matches(port) {
+        for fb in fallbacks where allowPortFallback && fb.matches(port) {
             return DevServerMatch(framework: fb.label, category: Self.category(fb.category), confidence: fb.confidence)
         }
         return DevServerMatch(framework: defaultMatch.label, category: .unknown, confidence: defaultMatch.confidence)

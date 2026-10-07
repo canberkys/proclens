@@ -32,9 +32,20 @@ let package = Package(
             exclude: ["com.canberkki.ProcLens.helper.plist"],
             swiftSettings: [.enableUpcomingFeature("ExistentialAny")]
         ),
+        // CLI logic (argument parsing, formatting, commands) lives here so it is testable; AppKit-free.
+        .target(
+            name: "ProcLensCLIKit",
+            dependencies: ["ProcLensCore"],
+            swiftSettings: [.enableUpcomingFeature("ExistentialAny")]
+        ),
+        .executableTarget(
+            name: "proclens",
+            dependencies: ["ProcLensCLIKit"],
+            swiftSettings: [.enableUpcomingFeature("ExistentialAny")]
+        ),
         .testTarget(
             name: "ProcLensCoreTests",
-            dependencies: ["ProcLensCore", "ProcLensHelperProtocol"],
+            dependencies: ["ProcLensCore", "ProcLensHelperProtocol", "ProcLensCLIKit"],
             resources: [.copy("Fixtures")]
         ),
     ]

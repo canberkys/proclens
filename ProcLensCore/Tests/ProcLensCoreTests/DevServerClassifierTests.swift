@@ -69,3 +69,14 @@ struct DevServerClassifierTests {
         #expect(!c.isLikelyHTTP(port: port(5173, proto: .udp), match: vite))
     }
 }
+
+@Test func portFallbackSkipsSystemDaemonsAndUDP() {
+    let c = DevServerClassifier.shared
+    let id = ProcessID(pid: 10, startTime: 1)
+    let tcp = ListeningPort(port: 5000, proto: .tcp, address: "0.0.0.0", isLoopbackOnly: false, pid: 10, processID: id)
+    let udp = ListeningPort(port: 3722, proto: .udp, address: "::", isLoopbackOnly: false, pid: 10, processID: id)
+    #expect(c.classify(port: tcp, processName: "ControlCenter", commandLine: "",
+                       executablePath: "/System/Library/CoreServices/ControlCenter.app/Contents/MacOS/ControlCenter", uid: 501).category == .unknown)
+    #expect(c.classify(port: udp, processName: "rapportd", commandLine: "", executablePath: "/usr/libexec/rapportd", uid: 501).category == .unknown)
+    #expect(c.classify(port: tcp, processName: "myserver", commandLine: "", executablePath: "/Users/x/bin/myserver", uid: 501).category == .web)
+}
