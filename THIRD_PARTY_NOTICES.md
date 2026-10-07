@@ -45,7 +45,7 @@ SOFTWARE.
 ## Simple Dev Server Viewer
 - Source: https://github.com/timdreesen/simple-dev-server-viewer (commit b578c10c3a45895443a1dfea278462b5908d6c8e)
 - License: MIT
-- Used in: `ProcLensCore/Sources/ProcLensCore/Resources/dev-server-rules.json`
+- Used in: `ProcLensCore/Sources/ProcLensCore/Resources/dev-server-rules.json`, `ProcLensCore/Sources/ProcLensCore/Actions/TreeKiller.swift` (algorithm idea only)
 
 ```text
 MIT License

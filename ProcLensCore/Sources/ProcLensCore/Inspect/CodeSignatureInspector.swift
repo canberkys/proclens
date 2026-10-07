@@ -31,6 +31,52 @@ public enum CodeSignStatus: Sendable, Hashable {
     }
 }
 
+/// A value inside an entitlements plist (kept `Sendable`, unlike `Any`).
+public indirect enum EntitlementValue: Sendable, Hashable, CustomStringConvertible {
+    case bool(Bool)
+    case string(String)
+    case number(Double)
+    case array([EntitlementValue])
+    case dictionary([String: EntitlementValue])
+    case other(String)
+
+    init(any value: Any) {
+        switch value {
+        case let n as NSNumber:
+            // CFBoolean bridges to NSNumber; distinguish by type id.
+            if CFGetTypeID(n) == CFBooleanGetTypeID() { self = .bool(n.boolValue) } else { self = .number(n.doubleValue) }
+        case let s as String: self = .string(s)
+        case let a as [Any]: self = .array(a.map { EntitlementValue(any: $0) })
+        case let d as [String: Any]: self = .dictionary(d.mapValues { EntitlementValue(any: $0) })
+        default: self = .other(String(describing: value))
+        }
+    }
+
+    public var description: String {
+        switch self {
+        case .bool(let b): b ? "true" : "false"
+        case .string(let s): s
+        case .number(let n): n == n.rounded() ? String(Int64(n)) : String(n)
+        case .array(let a): "[" + a.map(\.description).joined(separator: ", ") + "]"
+        case .dictionary(let d): "{" + d.sorted { $0.key < $1.key }.map { "\($0.key): \($0.value)" }.joined(separator: ", ") + "}"
+        case .other(let s): s
+        }
+    }
+}
+
+/// Full signing information for the Inspector tab.
+public struct SigningDetails: Sendable, Hashable {
+    public var status: CodeSignStatus
+    public var identifier: String?
+    public var teamID: String?
+    /// Common names of the certificate chain, leaf first.
+    public var certificateChain: [String]
+    public var entitlements: [String: EntitlementValue]
+    /// `CS_RUNTIME` flag (hardened runtime).
+    public var hardenedRuntime: Bool
+    public var notarized: Bool
+}
+
 /// On-demand signature checks (never on the sampling hot path), cached by path + mtime.
 public actor CodeSignatureInspector {
     public static let shared = CodeSignatureInspector()
@@ -57,6 +103,39 @@ public actor CodeSignatureInspector {
         }
         cache[path] = (mtime: mtime, status: result)
         return result
+    }
+
+    /// Identifier, team, certificate chain, entitlements, hardened-runtime and notarization for the
+    /// executable at `path`. Nil when the file can't be opened or is unsigned. Not cached (inspector use).
+    public func details(forPath path: String) async -> SigningDetails? {
+        var staticCodeRef: SecStaticCode?
+        guard SecStaticCodeCreateWithPath(URL(fileURLWithPath: path) as CFURL, [], &staticCodeRef) == errSecSuccess,
+              let code = staticCodeRef else { return nil }
+
+        let signedStatus = await status(forPath: path)
+        if signedStatus == .unsigned || signedStatus == .unknown { return nil }
+
+        var infoRef: CFDictionary?
+        let flags = SecCSFlags(rawValue: UInt32(kSecCSSigningInformation | kSecCSRequirementInformation))
+        guard SecCodeCopySigningInformation(code, flags, &infoRef) == errSecSuccess,
+              let info = infoRef as? [String: Any] else { return nil }
+
+        let certs = (info[kSecCodeInfoCertificates as String] as? [SecCertificate]) ?? []
+        let chain = certs.compactMap { cert -> String? in
+            var name: CFString?
+            return SecCertificateCopyCommonName(cert, &name) == errSecSuccess ? name as String? : nil
+        }
+        let entitlements = (info[kSecCodeInfoEntitlementsDict as String] as? [String: Any])?
+            .mapValues { EntitlementValue(any: $0) } ?? [:]
+        let rawFlags = (info[kSecCodeInfoFlags as String] as? NSNumber)?.uint32Value ?? 0
+        let notarized: Bool
+        if case .developerID(_, let n) = signedStatus { notarized = n } else { notarized = Self.satisfies(code, requirement: "notarized") }
+
+        return SigningDetails(
+            status: signedStatus, identifier: info[kSecCodeInfoIdentifier as String] as? String,
+            teamID: info[kSecCodeInfoTeamIdentifier as String] as? String, certificateChain: chain,
+            entitlements: entitlements, hardenedRuntime: rawFlags & SecCodeSignatureFlags.runtime.rawValue != 0,
+            notarized: notarized)
     }
 
     // MARK: - Helpers

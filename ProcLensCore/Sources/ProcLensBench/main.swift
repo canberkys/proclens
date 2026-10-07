@@ -116,10 +116,69 @@ func runSynthetic(ticks: Int) async {
                  ticks, total / Double(ticks), worst))
 }
 
+/// Listening-port scan cost: live machine (cold = first scan, warm = negative cache populated) and a
+/// synthetic 1,000-process table (every 10th process listens, 1 in 20 restricted).
+///   swift run -c release --package-path ProcLensCore ProcLensBench ports [runs]
+struct SyntheticFDSource: FDSource {
+    func listFDs(pid: pid_t) throws -> [FDEntry] {
+        pid % 10 == 0 ? [FDEntry(fd: 0, type: .vnode), FDEntry(fd: 3, type: .socket), FDEntry(fd: 4, type: .socket)]
+                      : [FDEntry(fd: 0, type: .vnode), FDEntry(fd: 1, type: .vnode), FDEntry(fd: 2, type: .pipe)]
+    }
+    func vnodeInfo(pid: pid_t, fd: Int32) throws -> RawVnodeInfo { RawVnodeInfo(path: "/dev/null", openFlags: 1) }
+    func socketInfo(pid: pid_t, fd: Int32) throws -> RawSocketInfo {
+        fd == 3 ? RawSocketInfo(kind: .tcp, family: AF_INET, proto: IPPROTO_TCP, localAddress: [0, 0, 0, 0],
+                                remoteAddress: [0, 0, 0, 0], localPort: UInt16(truncatingIfNeeded: 10_000 + pid), tcpState: 1)
+                 : RawSocketInfo(kind: .inet, family: AF_INET, proto: IPPROTO_UDP, localAddress: [127, 0, 0, 1],
+                                 remoteAddress: [127, 0, 0, 1], localPort: 5353, remotePort: 5353)
+    }
+    func pipeInfo(pid: pid_t, fd: Int32) throws -> RawPipeInfo { RawPipeInfo(handle: 1, peerHandle: 2) }
+}
+
+func millis(_ d: Duration) -> Double { Double(d.components.seconds) * 1e3 + Double(d.components.attoseconds) / 1e15 }
+
+func runPorts(runs: Int) async {
+    let clock = ContinuousClock()
+    // Synthetic 1,000 processes.
+    var procs: [ProcessID: ProcessSample] = [:]
+    for pid in 1...1000 {
+        let id = ProcessID(pid: pid_t(pid), startTime: UInt64(pid) * 1000)
+        procs[id] = ProcessSample(id: id, ppid: 1, uid: 501, name: "p\(pid)", path: nil, threadCount: 1, isTranslated: false,
+                                  cpu: 0, memory: 0, diskReadPerSec: 0, diskWritePerSec: 0, energy: 0, isRestricted: pid % 20 == 0)
+    }
+    let synthetic = ListeningPortCollector(source: SyntheticFDSource())
+    let table = ProcessTable(processes: procs)
+    var t0 = clock.now
+    let cold = await synthetic.scan(table: table)
+    let coldMs = millis(t0.duration(to: clock.now))
+    t0 = clock.now
+    for _ in 0..<runs { _ = await synthetic.scan(table: table) }
+    let warm = millis(t0.duration(to: clock.now)) / Double(runs)
+    print(String(format: "ports synthetic: 1000 processes (mock syscalls, %d ports): cold %.3f ms, warm avg %.3f ms", cold.count, coldMs, warm))
+
+    // Live machine.
+    let pc = ProcessCollector(source: LiveProcessSource())
+    _ = try? await pc.sample(at: clock.now)
+    guard let live = try? await pc.sample(at: clock.now.advanced(by: .seconds(1))) else { return }
+    let collector = ListeningPortCollector()
+    t0 = clock.now
+    let liveCold = await collector.scan(table: live)
+    let liveColdMs = millis(t0.duration(to: clock.now))
+    var worst = 0.0, total = 0.0
+    for _ in 0..<runs {
+        let a = clock.now
+        _ = await collector.scan(table: live)
+        let ms = millis(a.duration(to: clock.now)); total += ms; worst = max(worst, ms)
+    }
+    print(String(format: "ports live: %d processes (%d restricted), %d ports: cold %.3f ms, warm avg %.3f ms, worst %.3f ms",
+                 live.processes.count, live.processes.values.filter(\.isRestricted).count, liveCold.count,
+                 liveColdMs, total / Double(runs), worst))
+}
+
 let args = CommandLine.arguments
 let mode = args.count > 1 ? args[1] : "live"
 let n = args.count > 2 ? Int(args[2]) ?? 20 : 20
 switch mode {
 case "synthetic": await runSynthetic(ticks: n)
+case "ports": await runPorts(runs: args.count > 2 ? n : 50)
 default: await runLive(seconds: n, only: Set(args.dropFirst(3)))
 }

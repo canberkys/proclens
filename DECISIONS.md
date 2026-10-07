@@ -11,6 +11,18 @@ Architecture decisions and code reuse log. Newest first.
 
 ---
 
+### 2026-10-08 — Phase 2 Core: inspector, ports, dev-server rules, tree kill
+- **Decision:**
+  - `FDSource` / `RegionSource` / `ProcessController` protocols wrap libproc and `kill`; the live implementations use `PROC_PIDLISTFDS`, `PROC_PIDFDVNODEPATHINFO`, `PROC_PIDFDSOCKETINFO`, `PROC_PIDFDPIPEINFO`, `PROC_PIDREGIONPATHINFO` and `PROC_PIDTBSDINFO` only. No shelling out, no private API.
+  - `FileDescriptorInspector` and `LoadedImagesInspector` are on-demand actors. Loaded images are files mapped into the process; dyld shared-cache libraries appear only as the cache file (limitation, documented in the type).
+  - `ListeningPortCollector` (`.everyN(2)`, also callable via `scan(table:)`) keeps TCP LISTEN and unconnected UDP sockets with a non-zero local port. It skips `isRestricted` processes, caches "no sockets / unreadable" per `ProcessID` for 5 runs, and merges helper-provided ports (`setHelperPorts`). Measured on this Mac: 1,089 processes (375 restricted) = 1.5 ms cold, 0.9 ms warm.
+  - `dev-server-rules.json` gained container, Django, Flask, Uvicorn, Gunicorn, FastAPI, Jupyter, PHP built-in server, Hugo, Jekyll, Puma, Storybook and cargo-watch rules, an `httpPorts` list, and a `word` flag so short needles (`bun`, `next`, `node`...) match whole tokens only. The first matching rule wins; the list is ordered most specific first.
+  - `ProcessTree` is built once per table: a parent must exist and must not have started after its child (pid reuse); cycles are broken by promoting the oldest unvisited node to a root. `TreeKiller` sends SIGTERM children-first, polls for a grace period, then SIGKILLs survivors. It re-checks each pid's start time before signalling, treats zombies as dead, refuses the whole operation if the root is refused by `ProtectionPolicy`, and skips refused descendants.
+  - Address formatting is our own `inet_ntop` wrapper (`AddressFormatter`, v4-mapped IPv6 shown as IPv4). sloth's `IPUtils.m` was not adapted.
+- **Why:** SPEC §6 items 1-3; keeps per-tick cost low and every syscall mockable.
+- **Alternatives considered:** `lsof -i` (forbidden); caching ports across ticks without re-reading socket owners (stale listeners); substring-only needles (false positives such as `bundle` matching `bun`).
+- **Reuse:** timdreesen/simple-dev-server-viewer · b578c10c3a45895443a1dfea278462b5908d6c8e · MIT · src-tauri/src/lib.rs `classify()` rules extended in `dev-server-rules.json` (data) and `collect_descendants()` → `Actions/TreeKiller.swift` (algorithm only: BFS descendants, children first; grace/escalation is our own).
+
 ### 2026-10-08 — Small binary, no third-party dependencies; D3 revised
 - **Decision:** The shipped app has no SPM dependencies. Release builds strip all symbols and use dead-code stripping and whole-module optimization. Target: universal bundle < 3 MB (it was 3.6 MB at the first UI build). **D3 is revised:** the global hotkey uses our own small Carbon `RegisterEventHotKey` wrapper instead of `KeyboardShortcuts`.
 - **Why:** The product owner requires a small, handy app. One hotkey doesn't justify a dependency, its UI and its maintenance.
