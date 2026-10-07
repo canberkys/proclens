@@ -51,6 +51,52 @@ public struct LiveProcessSource: ProcessSource {
         }
     }
 
+    public func allPIDs(into buffer: inout [pid_t]) throws {
+        if buffer.count < 2048 { buffer = [pid_t](repeating: 0, count: 2048) }
+        while true {
+            let capacity = buffer.count
+            let bytes = Int32(capacity * MemoryLayout<pid_t>.size)
+            let count = buffer.withUnsafeMutableBytes { proc_listallpids($0.baseAddress, bytes) }
+            guard count > 0 else { throw SourceError("proc_listallpids", errno: errno) }
+            if Int(count) >= capacity - 16 {  // possibly truncated: grow and retry
+                buffer = [pid_t](repeating: 0, count: capacity * 2)
+                continue
+            }
+            // Compact in place: drop the zero padding but keep kernel_task (pid 0) once.
+            var out = 0
+            var sawKernel = false
+            for i in 0..<Int(count) {
+                let pid = buffer[i]
+                if pid == 0 {
+                    if sawKernel { continue }
+                    sawKernel = true
+                }
+                buffer[out] = pid
+                out += 1
+            }
+            buffer.removeSubrange(out..<buffer.count)  // keeps capacity
+            return
+        }
+    }
+
+    public func threadCount(_ pid: pid_t) throws -> Int32 {
+        var info = proc_taskinfo()
+        let size = Int32(MemoryLayout<proc_taskinfo>.size)
+        guard proc_pidinfo(pid, PROC_PIDTASKINFO, 0, &info, size) == size else {
+            throw SourceError("proc_pidinfo", errno: errno == 0 ? ESRCH : errno)
+        }
+        return info.pti_threadnum
+    }
+
+    public func shortInfo(_ pid: pid_t) throws -> ShortInfo {
+        var short = proc_bsdshortinfo()
+        let size = Int32(MemoryLayout<proc_bsdshortinfo>.size)
+        guard proc_pidinfo(pid, PROC_PIDT_SHORTBSDINFO, 0, &short, size) == size else {
+            throw SourceError("proc_pidinfo", errno: errno == 0 ? ESRCH : errno)
+        }
+        return ShortInfo(ppid: pid_t(short.pbsi_ppid), uid: short.pbsi_uid, name: Self.string(from: short.pbsi_comm))
+    }
+
     public func taskAllInfo(_ pid: pid_t) throws -> TaskAllInfo {
         var info = proc_taskallinfo()
         let size = Int32(MemoryLayout<proc_taskallinfo>.size)
@@ -84,19 +130,22 @@ public struct LiveProcessSource: ProcessSource {
             isTranslated: short.pbsi_flags & Self.pTranslated != 0)
     }
 
+    /// Uses flavor V2 (V6 costs ~2.5x more per call and V2 has every field we use; `billedEnergy` is
+    /// therefore always 0, it is unused by the energy model).
     public func rusage(_ pid: pid_t) throws -> ResourceUsage {
-        var ri = rusage_info_v6()
+        var ri = rusage_info_v2()
         let rc = withUnsafeMutablePointer(to: &ri) { ptr in
             ptr.withMemoryRebound(to: rusage_info_t?.self, capacity: 1) {
-                proc_pid_rusage(pid, RUSAGE_INFO_V6, $0)
+                proc_pid_rusage(pid, RUSAGE_INFO_V2, $0)
             }
         }
         guard rc == 0 else { throw SourceError("proc_pid_rusage", errno: errno) }
         return ResourceUsage(
             userTime: Self.machToNanos(ri.ri_user_time), systemTime: Self.machToNanos(ri.ri_system_time),
             physFootprint: ri.ri_phys_footprint, diskBytesRead: ri.ri_diskio_bytesread,
-            diskBytesWritten: ri.ri_diskio_byteswritten, billedEnergy: ri.ri_billed_energy,
-            interruptWakeups: ri.ri_interrupt_wkups, packageIdleWakeups: ri.ri_pkg_idle_wkups)
+            diskBytesWritten: ri.ri_diskio_byteswritten, billedEnergy: 0,
+            interruptWakeups: ri.ri_interrupt_wkups, packageIdleWakeups: ri.ri_pkg_idle_wkups,
+            startAbsTime: ri.ri_proc_start_abstime)
     }
 
     public func path(_ pid: pid_t) throws -> String {

@@ -41,9 +41,13 @@ public struct ResourceUsage: Sendable, Hashable {
     public var billedEnergy: UInt64
     public var interruptWakeups: UInt64
     public var packageIdleWakeups: UInt64
+    /// `ri_proc_start_abstime`: process start in mach absolute time. Identity check for pid reuse
+    /// without a second syscall (a changed value means a different process).
+    public var startAbsTime: UInt64
 
     public init(userTime: UInt64, systemTime: UInt64, physFootprint: UInt64, diskBytesRead: UInt64,
-                diskBytesWritten: UInt64, billedEnergy: UInt64, interruptWakeups: UInt64, packageIdleWakeups: UInt64) {
+                diskBytesWritten: UInt64, billedEnergy: UInt64, interruptWakeups: UInt64, packageIdleWakeups: UInt64,
+                startAbsTime: UInt64 = 0) {
         self.userTime = userTime
         self.systemTime = systemTime
         self.physFootprint = physFootprint
@@ -52,6 +56,19 @@ public struct ResourceUsage: Sendable, Hashable {
         self.billedEnergy = billedEnergy
         self.interruptWakeups = interruptWakeups
         self.packageIdleWakeups = packageIdleWakeups
+        self.startAbsTime = startAbsTime
+    }
+}
+
+/// Cheap identity probe (`PROC_PIDT_SHORTBSDINFO`), readable for other users' processes.
+public struct ShortInfo: Sendable, Hashable {
+    public var ppid: pid_t
+    public var uid: uid_t
+    public var name: String
+    public init(ppid: pid_t, uid: uid_t, name: String) {
+        self.ppid = ppid
+        self.uid = uid
+        self.name = name
     }
 }
 
@@ -63,6 +80,22 @@ public protocol ProcessSource: Sendable {
     func path(_ pid: pid_t) throws -> String
     /// Raw `KERN_PROCARGS2` buffer; parse with `ProcArgsParser`.
     func procArgs(_ pid: pid_t) throws -> [UInt8]
+
+    /// Fills `buffer` with all pids (kernel_task once), reusing its storage across ticks.
+    func allPIDs(into buffer: inout [pid_t]) throws
+    /// One cheap call: the current thread count only (refreshed every few ticks).
+    func threadCount(_ pid: pid_t) throws -> Int32
+    /// One cheap call: ppid/uid/name, used to re-validate pids that cannot be sampled.
+    func shortInfo(_ pid: pid_t) throws -> ShortInfo
+}
+
+extension ProcessSource {
+    public func allPIDs(into buffer: inout [pid_t]) throws { buffer = try allPIDs() }
+    public func threadCount(_ pid: pid_t) throws -> Int32 { try taskAllInfo(pid).threadCount }
+    public func shortInfo(_ pid: pid_t) throws -> ShortInfo {
+        let i = try taskAllInfo(pid)
+        return ShortInfo(ppid: i.ppid, uid: i.uid, name: i.name)
+    }
 }
 
 public struct SourceError: Error, Sendable, Hashable {

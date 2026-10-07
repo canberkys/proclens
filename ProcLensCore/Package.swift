@@ -13,6 +13,11 @@ let package = Package(
             resources: [.process("Resources")],
             swiftSettings: [.enableUpcomingFeature("ExistentialAny")]
         ),
+        .executableTarget(
+            name: "ProcLensBench",
+            dependencies: ["ProcLensCore"],
+            swiftSettings: [.enableUpcomingFeature("ExistentialAny")]
+        ),
         .testTarget(
             name: "ProcLensCoreTests",
             dependencies: ["ProcLensCore"],

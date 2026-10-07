@@ -30,18 +30,53 @@ public actor ProcessCollector: Collector {
         var wakeups: UInt64
     }
 
-    private let source: any ProcessSource
-    private var previous: [ProcessID: Counters] = [:]
-    private var previousInstant: ContinuousClock.Instant?
-    private var paths: [ProcessID: String] = [:]
+    /// Per-pid cache: static identity plus last counters. Mutated in place (reference type).
+    private final class Entry {
+        var sample: ProcessSample
+        /// `ri_proc_start_abstime` captured on the first read; a change means pid reuse.
+        var startAbs: UInt64
+        /// False when `proc_pid_rusage` is denied: nothing is queried per tick for such pids.
+        var usageReadable: Bool
+        var counters: Counters?
+        var seen: UInt64
+        /// Tick instant of the last rusage read (rates use the per-pid interval, so skipped ticks stay exact).
+        var lastRead: ContinuousClock.Instant?
+        /// Consecutive reads with < 0.1% CPU and no disk I/O.
+        var idleStreak = 0
+        init(sample: ProcessSample, startAbs: UInt64, usageReadable: Bool, counters: Counters?, seen: UInt64) {
+            self.sample = sample
+            self.startAbs = startAbs
+            self.usageReadable = usageReadable
+            self.counters = counters
+            self.seen = seen
+        }
+    }
 
-    public init(source: any ProcessSource) {
+    /// Thread counts are refreshed every n-th tick (staggered per pid); restricted pids are
+    /// re-validated against pid reuse every m-th tick with one cheap call.
+    static let threadRefreshInterval: UInt64 = 5
+    static let restrictedRevalidateInterval: UInt64 = 10
+
+    /// Reads that must look idle before a process is throttled to every other tick.
+    static let idleStreakForThrottle = 3
+
+    private let source: any ProcessSource
+    private let idleThrottling: Bool
+    private var cache: [pid_t: Entry] = [:]
+    private var pidBuffer: [pid_t] = []
+    private var tick: UInt64 = 0
+
+    /// - Parameter idleThrottling: when true, a process that showed < 0.1% CPU and no disk I/O for
+    ///   3 consecutive reads is read only every other tick (its last sample is reused in between and
+    ///   rates are computed over the real interval). Halves the dominant syscall cost on mostly-idle
+    ///   systems; a process waking up is noticed up to 1 tick later. Default off.
+    public init(source: any ProcessSource, idleThrottling: Bool = false) {
         self.source = source
+        self.idleThrottling = idleThrottling
     }
 
     public func reset() {
-        previous.removeAll(keepingCapacity: true)
-        previousInstant = nil
+        for e in cache.values { e.counters = nil; e.lastRead = nil; e.idleStreak = 0 }
     }
 
     /// Parsed argv/env for the inspector. On demand only; never on the sampling path.
@@ -50,69 +85,143 @@ public actor ProcessCollector: Collector {
     }
 
     public func sample(at instant: ContinuousClock.Instant) async throws -> ProcessTable {
-        let pids = try source.allPIDs()
-        let elapsed: Double? = previousInstant.map { Self.seconds(from: $0, to: instant) }
-        let dt = (elapsed ?? 0) > 0 ? elapsed : nil
+        try source.allPIDs(into: &pidBuffer)
+        tick &+= 1
+        let tick = self.tick
 
         var table: [ProcessID: ProcessSample] = [:]
-        table.reserveCapacity(pids.count)
-        var nextPrevious: [ProcessID: Counters] = [:]
-        nextPrevious.reserveCapacity(pids.count)
-        var nextPaths: [ProcessID: String] = [:]
-        nextPaths.reserveCapacity(pids.count)
+        table.reserveCapacity(pidBuffer.count)
+        var seenCount = 0
 
-        for pid in pids {
-            let info: TaskAllInfo
-            do {
-                info = try source.taskAllInfo(pid)
-            } catch {
-                continue  // ESRCH (exited) and unreadable pids are skipped
-            }
-            let pid_ = info.processID
-
-            var restricted = false
-            var usage: ResourceUsage?
-            do {
-                usage = try source.rusage(pid)
-            } catch let e as SourceError where e.isGone {
-                continue
-            } catch {
-                restricted = true  // EPERM etc.: keep what we have
-            }
-            // The short-info fallback (other users' processes) reports threadCount 0.
-            if info.threadCount == 0 && pid != 0 { restricted = true }
-
-            var cpu = 0.0, readRate = 0.0, writeRate = 0.0, energy = 0.0
-            var memory: UInt64 = 0
-            if let u = usage {
-                memory = u.physFootprint
-                let counters = Counters(cpuNanos: u.userTime &+ u.systemTime, diskRead: u.diskBytesRead,
-                                        diskWritten: u.diskBytesWritten,
-                                        wakeups: u.interruptWakeups &+ u.packageIdleWakeups)
-                if let dt, let prev = previous[pid_] {
-                    cpu = Double(Self.delta(counters.cpuNanos, prev.cpuNanos)) / (dt * 1e9)
-                    readRate = Double(Self.delta(counters.diskRead, prev.diskRead)) / dt
-                    writeRate = Double(Self.delta(counters.diskWritten, prev.diskWritten)) / dt
-                    let wakeRate = Double(Self.delta(counters.wakeups, prev.wakeups)) / dt
-                    energy = Self.cpuEnergyWeight * cpu + Self.wakeupEnergyWeight * wakeRate
+        for pid in pidBuffer {
+            let stagger = tick &+ UInt64(UInt32(bitPattern: pid))
+            if let e = cache[pid] {
+                if e.usageReadable {
+                    if idleThrottling, e.idleStreak >= Self.idleStreakForThrottle, stagger & 1 == 1 {
+                        e.seen = tick
+                        seenCount += 1
+                        table[e.sample.id] = e.sample
+                        continue
+                    }
+                    let usage: ResourceUsage
+                    do {
+                        usage = try source.rusage(pid)
+                    } catch let err as SourceError where err.isGone {
+                        continue
+                    } catch {
+                        // Became unreadable: stay in the cache as restricted, stop querying.
+                        e.usageReadable = false
+                        e.counters = nil
+                        e.sample.isRestricted = true
+                        e.sample.memory = 0
+                        e.sample.cpu = 0; e.sample.energy = 0
+                        e.sample.diskReadPerSec = 0; e.sample.diskWritePerSec = 0
+                        e.seen = tick; seenCount += 1
+                        table[e.sample.id] = e.sample
+                        continue
+                    }
+                    if usage.startAbsTime == e.startAbs {
+                        e.seen = tick
+                        seenCount += 1
+                        if !e.sample.isRestricted, stagger % Self.threadRefreshInterval == 0,
+                           let n = try? source.threadCount(pid) {
+                            e.sample.threadCount = n
+                        }
+                        Self.apply(usage, to: e, at: instant)
+                        table[e.sample.id] = e.sample
+                        continue
+                    }
+                    // pid reuse: fall through to a full re-read
+                } else if stagger % Self.restrictedRevalidateInterval != 0 {
+                    e.seen = tick
+                    seenCount += 1
+                    table[e.sample.id] = e.sample
+                    continue
+                } else {
+                    do {
+                        let s = try source.shortInfo(pid)
+                        let cur = e.sample
+                        if s.ppid == cur.ppid && s.uid == cur.uid && (s.name == cur.name || cur.name.hasPrefix(s.name)) {
+                            e.seen = tick
+                            seenCount += 1
+                            table[cur.id] = cur
+                            continue
+                        }
+                    } catch let err as SourceError where err.isGone {
+                        continue
+                    } catch {
+                        // unreadable: fall through to a full re-read
+                    }
                 }
-                nextPrevious[pid_] = counters
             }
-
-            var path = paths[pid_]
-            if path == nil, let p = try? source.path(pid) { path = p }
-            if let path { nextPaths[pid_] = path }
-
-            table[pid_] = ProcessSample(
-                id: pid_, ppid: info.ppid, uid: info.uid, name: info.name, path: path,
-                threadCount: info.threadCount, isTranslated: info.isTranslated, cpu: cpu, memory: memory,
-                diskReadPerSec: readRate, diskWritePerSec: writeRate, energy: energy, isRestricted: restricted)
+            if let e = readFresh(pid, tick: tick, at: instant) {
+                cache[pid] = e
+                seenCount += 1
+                table[e.sample.id] = e.sample
+            } else {
+                cache[pid] = nil
+            }
         }
 
-        previous = nextPrevious  // prunes vanished processes
-        paths = nextPaths
-        previousInstant = instant
+        if cache.count != seenCount {  // prune vanished processes
+            for (pid, e) in cache where e.seen != tick { cache[pid] = nil }
+        }
         return ProcessTable(processes: table)
+    }
+
+    /// Full identity read for a new (or reused) pid.
+    private func readFresh(_ pid: pid_t, tick: UInt64, at instant: ContinuousClock.Instant) -> Entry? {
+        let info: TaskAllInfo
+        do {
+            info = try source.taskAllInfo(pid)
+        } catch {
+            return nil  // ESRCH (exited) and unreadable pids are skipped
+        }
+        var restricted = false
+        var usage: ResourceUsage?
+        do {
+            usage = try source.rusage(pid)
+        } catch let e as SourceError where e.isGone {
+            return nil
+        } catch {
+            restricted = true  // EPERM etc.
+        }
+        // The short-info fallback (other users' processes) reports threadCount 0.
+        if info.threadCount == 0 && pid != 0 { restricted = true }
+        let path = try? source.path(pid)
+        let sample = ProcessSample(
+            id: info.processID, ppid: info.ppid, uid: info.uid, name: info.name, path: path,
+            threadCount: info.threadCount, isTranslated: info.isTranslated, cpu: 0, memory: usage?.physFootprint ?? 0,
+            diskReadPerSec: 0, diskWritePerSec: 0, energy: 0, isRestricted: restricted)
+        let e = Entry(sample: sample, startAbs: usage?.startAbsTime ?? 0, usageReadable: usage != nil,
+                      counters: nil, seen: tick)
+        if let usage { Self.apply(usage, to: e, at: instant) }
+        return e
+    }
+
+    /// Updates counters and rates (all rates 0 without a previous reading).
+    private static func apply(_ u: ResourceUsage, to e: Entry, at instant: ContinuousClock.Instant) {
+        let elapsed = e.lastRead.map { seconds(from: $0, to: instant) } ?? 0
+        let dt: Double? = elapsed > 0 ? elapsed : nil
+        e.lastRead = instant
+        let counters = Counters(cpuNanos: u.userTime &+ u.systemTime, diskRead: u.diskBytesRead,
+                                diskWritten: u.diskBytesWritten, wakeups: u.interruptWakeups &+ u.packageIdleWakeups)
+        var cpu = 0.0, readRate = 0.0, writeRate = 0.0, energy = 0.0
+        if let dt, let prev = e.counters {
+            cpu = Double(delta(counters.cpuNanos, prev.cpuNanos)) / (dt * 1e9)
+            readRate = Double(delta(counters.diskRead, prev.diskRead)) / dt
+            writeRate = Double(delta(counters.diskWritten, prev.diskWritten)) / dt
+            let wakeRate = Double(delta(counters.wakeups, prev.wakeups)) / dt
+            energy = cpuEnergyWeight * cpu + wakeupEnergyWeight * wakeRate
+        }
+        let idle = dt != nil && cpu < 0.001 && readRate == 0 && writeRate == 0
+        e.idleStreak = idle ? e.idleStreak + 1 : 0
+        e.counters = counters
+        e.sample.memory = u.physFootprint
+        e.sample.cpu = cpu
+        e.sample.diskReadPerSec = readRate
+        e.sample.diskWritePerSec = writeRate
+        e.sample.energy = energy
     }
 
     /// Counter delta; a counter that went backwards (should not happen) counts as 0.

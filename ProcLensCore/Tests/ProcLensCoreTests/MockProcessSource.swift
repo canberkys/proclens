@@ -17,6 +17,11 @@ final class MockProcessSource: ProcessSource, @unchecked Sendable {
     private var entries: [pid_t: Entry] = [:]
     private(set) var pathCalls = 0
     private(set) var procArgsCalls = 0
+    private(set) var infoCalls = 0
+    private(set) var rusageCalls = 0
+    private(set) var threadCalls = 0
+    private(set) var shortCalls = 0
+    func resetCounts() { lock.withLock { infoCalls = 0; rusageCalls = 0; threadCalls = 0; shortCalls = 0 } }
 
     func set(_ entry: Entry) { lock.withLock { entries[entry.info.pid] = entry } }
     func remove(_ pid: pid_t) { lock.withLock { _ = entries.removeValue(forKey: pid) } }
@@ -30,7 +35,7 @@ final class MockProcessSource: ProcessSource, @unchecked Sendable {
                                 threadCount: 2, isTranslated: false),
               usage: ResourceUsage(userTime: cpuNanos, systemTime: 0, physFootprint: footprint, diskBytesRead: read,
                                    diskBytesWritten: written, billedEnergy: 0, interruptWakeups: wakeups,
-                                   packageIdleWakeups: 0),
+                                   packageIdleWakeups: 0, startAbsTime: start),
               path: "/bin/\(name)")
     }
 
@@ -38,6 +43,7 @@ final class MockProcessSource: ProcessSource, @unchecked Sendable {
 
     func taskAllInfo(_ pid: pid_t) throws -> TaskAllInfo {
         try lock.withLock {
+            infoCalls += 1
             guard let e = entries[pid] else { throw SourceError("proc_pidinfo", errno: ESRCH) }
             if let err = e.infoError { throw err }
             return e.info
@@ -46,10 +52,27 @@ final class MockProcessSource: ProcessSource, @unchecked Sendable {
 
     func rusage(_ pid: pid_t) throws -> ResourceUsage {
         try lock.withLock {
+            rusageCalls += 1
             guard let e = entries[pid] else { throw SourceError("proc_pid_rusage", errno: ESRCH) }
             if let err = e.usageError { throw err }
             guard let u = e.usage else { throw SourceError("proc_pid_rusage", errno: EPERM) }
             return u
+        }
+    }
+
+    func threadCount(_ pid: pid_t) throws -> Int32 {
+        try lock.withLock {
+            threadCalls += 1
+            guard let e = entries[pid] else { throw SourceError("proc_pidinfo", errno: ESRCH) }
+            return e.info.threadCount
+        }
+    }
+
+    func shortInfo(_ pid: pid_t) throws -> ShortInfo {
+        try lock.withLock {
+            shortCalls += 1
+            guard let e = entries[pid] else { throw SourceError("proc_pidinfo", errno: ESRCH) }
+            return ShortInfo(ppid: e.info.ppid, uid: e.info.uid, name: e.info.name)
         }
     }
 

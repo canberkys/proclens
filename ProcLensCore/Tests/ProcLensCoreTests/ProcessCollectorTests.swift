@@ -117,4 +117,85 @@ struct ProcessCollectorTests {
         let snap = await sampler.tickOnce()
         #expect(snap.processes?.processes.count == 1)
     }
+
+    @Test func accessiblePidIsOneRusageCallPerTick() async throws {
+        let src = MockProcessSource()
+        src.set(MockProcessSource.entry(pid: 70))
+        let c = ProcessCollector(source: src)
+        _ = try await c.sample(at: t0)
+        src.resetCounts()
+        // Staggered thread refresh: 1 rusage per tick plus at most one thread call per 5 ticks.
+        for i in 1...10 { _ = try await c.sample(at: t0.advanced(by: .seconds(i))) }
+        #expect(src.rusageCalls == 10)
+        #expect(src.infoCalls == 0)
+        #expect(src.threadCalls == 2)
+    }
+
+    @Test func threadCountRefreshesOnCadence() async throws {
+        let src = MockProcessSource()
+        src.set(MockProcessSource.entry(pid: 71))
+        let c = ProcessCollector(source: src)
+        _ = try await c.sample(at: t0)
+        src.update(71) { $0.info.threadCount = 9 }
+        var seenStale = false, seenFresh = false
+        for i in 1...5 {
+            let t = try await c.sample(at: t0.advanced(by: .seconds(i)))
+            let n = try #require(t.processes.values.first).threadCount
+            if n == 2 { seenStale = true }
+            if n == 9 { seenFresh = true }
+        }
+        #expect(seenStale && seenFresh)
+    }
+
+    @Test func restrictedPidNotRequeriedAndRevalidated() async throws {
+        let src = MockProcessSource()
+        var e = MockProcessSource.entry(pid: 80)
+        e.usageError = SourceError("proc_pid_rusage", errno: EPERM)
+        e.info.threadCount = 0
+        src.set(e)
+        let c = ProcessCollector(source: src)
+        _ = try await c.sample(at: t0)
+        src.resetCounts()
+        for i in 1...20 { _ = try await c.sample(at: t0.advanced(by: .seconds(i))) }
+        #expect(src.rusageCalls == 0)
+        #expect(src.infoCalls == 0)
+        #expect(src.shortCalls == 2)  // every 10th tick
+        // pid reused by a different process (new ppid): detected by the revalidation, full re-read.
+        src.update(80) { $0.info.ppid = 77; $0.info.startTime = 5_000 }
+        var found = false
+        for i in 21...40 {
+            let t = try await c.sample(at: t0.advanced(by: .seconds(i)))
+            if t.processes[ProcessID(pid: 80, startTime: 5_000)] != nil { found = true }
+        }
+        #expect(found)
+    }
+
+    @Test func pidReuseDetectedViaRusageStartTime() async throws {
+        let src = MockProcessSource()
+        src.set(MockProcessSource.entry(pid: 90, start: 1_000, name: "old"))
+        let c = ProcessCollector(source: src)
+        _ = try await c.sample(at: t0)
+        src.set(MockProcessSource.entry(pid: 90, start: 3_000, name: "new"))
+        let t = try await c.sample(at: t0.advanced(by: .seconds(1)))
+        #expect(t.processes.count == 1)
+        #expect(t.processes[ProcessID(pid: 90, startTime: 3_000)]?.name == "new")
+    }
+
+    @Test func idleThrottlingHalvesReadsAndKeepsRatesExact() async throws {
+        let src = MockProcessSource()
+        src.set(MockProcessSource.entry(pid: 100))
+        let c = ProcessCollector(source: src, idleThrottling: true)
+        for i in 0..<6 { _ = try await c.sample(at: t0.advanced(by: .seconds(i))) }  // builds the idle streak
+        src.resetCounts()
+        for i in 6..<16 { _ = try await c.sample(at: t0.advanced(by: .seconds(i))) }
+        #expect(src.rusageCalls == 5)
+        // Activity is picked up on the next real read, with the rate over the real interval.
+        src.update(100) { $0.usage?.userTime = 4_000_000_000 }
+        var peak = 0.0
+        for i in 16..<18 {
+            let t = try await c.sample(at: t0.advanced(by: .seconds(i)))
+            peak = max(peak, t.processes.values.first?.cpu ?? 0)
+        }
+        #expect(abs(peak - 4.0 / 2.0) < 1e-9 || abs(peak - 4.0) < 1e-9)
+    }
 }

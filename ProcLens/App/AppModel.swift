@@ -26,7 +26,7 @@ final class AppModel {
     private(set) var isPanelOpen = false
     let protection = ProtectionPolicy()
 
-    @ObservationIgnored private let processCollector = ProcessCollector(source: LiveProcessSource())
+    @ObservationIgnored private let processCollector = ProcessCollector(source: LiveProcessSource(), idleThrottling: true)
     /// Everything the window needs (processes, disk, network, GPU).
     @ObservationIgnored private let sampler: Sampler
     /// CPU + memory only: the menu bar graph and menu. Runs instead of `sampler` while the window is hidden,
