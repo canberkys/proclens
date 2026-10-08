@@ -6,22 +6,24 @@
         <description>ProcLens release updates</description>
         <language>en</language>
         <item>
-            <title>Version 0.1.1</title>
-            <pubDate>Thu, 08 Oct 2026 08:11:44 +0000</pubDate>
-            <sparkle:version>2</sparkle:version>
-            <sparkle:shortVersionString>0.1.1</sparkle:shortVersionString>
+            <title>Version 0.1.2</title>
+            <pubDate>Thu, 08 Oct 2026 11:06:05 +0000</pubDate>
+            <sparkle:version>3</sparkle:version>
+            <sparkle:shortVersionString>0.1.2</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[
 <ul>
-<li><strong>Report an Issue</strong> (Help menu): send a bug report or feature request from inside the app. It becomes a GitHub issue; you see exactly which diagnostics are attached before sending (app and macOS version, Mac model, helper status — never process names, paths or personal data).</li>
-<li>If sending fails, the report opens pre-filled on GitHub in your browser instead.</li>
+<li><strong>The privileged helper now does its job.</strong> With the helper installed (Settings → Helper), root-owned and other users&#x27; processes show real CPU, memory, disk and thread values instead of &quot;—&quot;, Network Ports lists the ports of system processes, and ending a root-owned process works (critical system processes are still refused).</li>
+<li>Helper install status updates live, and a never-installed helper reads &quot;Not installed&quot; instead of &quot;Not found&quot;.</li>
+<li>History: dragging the spike threshold no longer makes the tab jump.</li>
+<li>README: new screenshots (taken from a synthetic demo dataset).</li>
 </ul>
             ]]></description>
             <enclosure
-                url="https://github.com/canberkys/proclens/releases/download/v0.1.1/ProcLens-0.1.1.dmg"
-                length="4936969"
+                url="https://github.com/canberkys/proclens/releases/download/v0.1.2/ProcLens-0.1.2.dmg"
+                length="4990447"
                 type="application/octet-stream"
-                sparkle:edSignature="WKLj2cb2IrArjcYLm1UfoyjFgVGyoIAXKbBPx8mBpnwTbxxxzliUdUSd0QvUzYq3jkMsOiOPpq6arYMXx3o4DQ==" />
+                sparkle:edSignature="d4uYEDROJioU3Svay1c0YxadxKmqGJNeXplxRGGBXJsgQZsUcXEMh4rJeaJtmf5ECtxyOUp0nXDF1ob4OqDcAg==" />
         </item>
     </channel>
 </rss>
