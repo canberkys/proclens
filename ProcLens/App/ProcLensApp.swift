@@ -21,6 +21,7 @@ struct ProcLensApp: App {
         DispatchQueue.main.async {  // neither needs the main window (it may never appear on a locked screen)
             PanelSnapshot.scheduleIfRequested()
             HelpDebug.scheduleIfRequested()
+            FeedbackDebug.scheduleIfRequested(model: model)
             DebugSnapshot.scheduleIfRequested(model: model, actions: actions)
         }
         #endif
@@ -46,6 +47,12 @@ struct ProcLensApp: App {
             ReleaseNotesView()
         }
         .defaultSize(width: 560, height: 480)
+
+        Window("Report an Issue", id: "feedback") {
+            FeedbackView()
+                .environment(model)
+        }
+        .windowResizability(.contentSize)
 
         Settings {
             SettingsView()

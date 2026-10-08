@@ -5,6 +5,7 @@ struct HelpView: View {
     @State private var query = ""
     @State private var selection: String? = HelpContent.topics.first?.id
     @AppStorage(HelpNavigation.topicKey) private var pendingTopic = ""
+    @Environment(\.openWindow) private var openWindow
 
     private var topics: [HelpTopic] {
         let q = query.trimmingCharacters(in: .whitespaces).lowercased()
@@ -61,6 +62,13 @@ struct HelpView: View {
                     ContentUnavailableView.search(text: query)
                 }
             }
+            Divider()
+            Button { openWindow(id: "feedback") } label: {
+                Label("Report an Issue…", systemImage: "exclamationmark.bubble")
+                    .frame(maxWidth: .infinity, alignment: .leading)
+            }
+            .buttonStyle(.plain)
+            .padding(.horizontal, 14).padding(.vertical, 10)
         }
     }
 
