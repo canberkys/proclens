@@ -11,6 +11,7 @@ First release: Phases 1 to 3.
 - Startup and Services tabs for login items and launchd agents and daemons, with enable, disable and restart.
 - Optional privileged helper (signed builds) for root-owned processes and system launchd jobs.
 - History tab (last hour, spikes, top processes at any moment) and threshold alerts with notifications.
-- Menu bar CPU graph with a quick panel and a configurable global shortcut.
+- Menu bar CPU indicator with a quick panel (gauges, search, top processes, dev servers) and a configurable global shortcut.
+- In-app Help, complete menus (⌘1–⌘7 tabs, Process menu) and automatic updates via Sparkle.
 - Separate `proclens` command-line tool: ps, top, ports, kill, launchd and system with JSON and CSV output.
 - No telemetry. The only network request is the Sparkle update check (daily at most, can be turned off).
