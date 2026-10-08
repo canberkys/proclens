@@ -61,6 +61,9 @@ struct ContentView: View {
                 .disabled(!item.isAvailable)
             }
             .navigationSplitViewColumnWidth(min: 180, ideal: 200, max: 260)
+            #if DEBUG
+            .debugSnapshotSidebarBackground()
+            #endif
             .safeAreaInset(edge: .bottom) {
                 Button { showAbout = true } label: {
                     Label("About", systemImage: "info.circle")
