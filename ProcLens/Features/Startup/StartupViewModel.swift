@@ -22,6 +22,10 @@ final class StartupViewModel {
     var filter: StartupFilter = .all
     var showApple = false
 
+    /// Signer-derived vendor per item id; applied in one batch so the list regroups once.
+    private(set) var signerVendor: [String: String] = [:]
+    @ObservationIgnored private var teamVendor: [String: String] = [:]
+    @ObservationIgnored private var vendorTask: Task<Void, Never>?
     @ObservationIgnored private var services: AppServices?
     @ObservationIgnored private var signing_inflight: Set<String> = []
 
@@ -41,6 +45,7 @@ final class StartupViewModel {
         guard let services, !isLoading else { return }
         isLoading = true
         defer { isLoading = false }
+        defer { resolveSignerVendors() }
         helperEnabled = services.helper.registrationStatus() == .enabled
         let snapshot = await services.launchd.snapshot()
         items = snapshot.items
@@ -86,7 +91,7 @@ final class StartupViewModel {
     }
 
     var groups: [Group] {
-        let dict = Dictionary(grouping: filtered) { LaunchdPresentation.vendor(for: $0.item) }
+        let dict = Dictionary(grouping: filtered) { vendor(for: $0.item) }
         return dict.map { Group(vendor: $0.key, items: $0.value.sorted {
             LaunchdPresentation.displayName(for: $0.item).localizedCaseInsensitiveCompare(LaunchdPresentation.displayName(for: $1.item)) == .orderedAscending
         }) }
@@ -94,6 +99,41 @@ final class StartupViewModel {
             if a.vendor == "Other" { return false }
             if b.vendor == "Other" { return true }
             return a.vendor.localizedCaseInsensitiveCompare(b.vendor) == .orderedAscending
+        }
+    }
+
+    private func vendor(for item: LaunchdItem) -> String {
+        if item.isApple { return LaunchdPresentation.vendor(for: item) }
+        return signerVendor[item.id] ?? LaunchdPresentation.vendor(for: item)
+    }
+
+    /// Resolves the signing developer for every non-Apple item in the background (cached by team ID),
+    /// then publishes all results at once.
+    private func resolveSignerVendors() {
+        vendorTask?.cancel()
+        let candidates = items.map(\.item).filter { !$0.isApple && !$0.isInterpreterLaunch && $0.signablePath != nil }
+        var known = teamVendor
+        vendorTask = Task {
+            var result: [String: String] = [:]
+            for item in candidates {
+                if Task.isCancelled { return }
+                guard let path = item.signablePath else { continue }
+                let status = await CodeSignatureInspector.shared.status(forPath: path)
+                let team: String?
+                switch status {
+                case .developerID(let t, _), .appStore(let t): team = t
+                case .apple: result[item.id] = "Apple"; continue
+                default: continue
+                }
+                if let team, let name = known[team] { result[item.id] = name; continue }
+                guard let leaf = await CodeSignatureInspector.shared.details(forPath: path)?.certificateChain.first,
+                      let name = VendorGuess.vendorName(fromCertificateCommonName: leaf) else { continue }
+                if let team { known[team] = name }
+                result[item.id] = name
+            }
+            if Task.isCancelled { return }
+            teamVendor = known
+            if result != signerVendor { signerVendor = result }
         }
     }
 

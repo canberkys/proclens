@@ -11,6 +11,16 @@ Architecture decisions and code reuse log. Newest first.
 
 ---
 
+### 2026-10-08 — Phase 1–3 complete on `phase-1`; final measurements
+- **Decision:** The bundle target is now ≤ 8 MB universal.
+- **Measured** (Release, ~1,050 processes, 30 s cputime delta):
+  - Bundle: 7.0 MB = binary 5.2 MB + asset catalog 1.2 MB + helper 0.4 MB.
+  - CPU: 0.56% with the window hidden, 1.16% with it visible.
+  - Footprint: 21 MB.
+  - Tests: 226.
+- **Why:** The full Phase 2/3 feature set landed (inspector, ports, launchd, helper, history, alerts). No PNG optimizer is installed, and installing one is left to the product owner (pngquant would save about 0.8 MB on the icon).
+- **Alternatives considered:** Dropping Intel (the SPEC requires it); `-Osize` (0.4 MB, slower hot path).
+
 ### 2026-10-08 — Details tree view, inspector windows, tree kill in menus
 - **Decision:** Tree is a toggle in the Details toolbar (outline column = Name, nodes expanded by default, the user's collapses are remembered by `NodeID`). Natural tree order is start time within siblings (shown as the Start time sort); sorting another column is the only thing that reorders. Search keeps ancestors of matches. Flat/tree switch does one bulk reload via `TableFeed.requestReload()`. Context menus gained "End process tree" (single selection, `ProcessActionCenter.requestEndTree`) and "Properties…" (⌘I, double-click in Details). The inspector is one `NSWindow` per process (`InspectorWindows`), data read once on open and on Refresh; only the header CPU/memory follows the visible snapshot.
 - **Why:** Windows Task Manager / Process Explorer feel without per-tick row jumps; no per-tick inspector work.

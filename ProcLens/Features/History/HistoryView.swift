@@ -211,7 +211,7 @@ struct HistoryView: View {
                         if let s = sparks[entry.id], s.count >= 2 {
                             HistorySparkline(values: s).frame(width: 56, height: 16)
                         }
-                        Text(sort == .cpu ? Format.cpuPercent(entry.cpu) : Format.bytes(entry.memory))
+                        Text(sort == .cpu ? Format.cpuPercent(entry.cpu / coreCount) : Format.bytes(entry.memory))
                             .monospacedDigit().foregroundStyle(.secondary)
                             .frame(width: 66, alignment: .trailing)
                     }
@@ -246,14 +246,18 @@ struct HistoryView: View {
         #endif
     }
 
+    /// Per-process CPU is stored as % of one core; the list shows machine share like the Processes tab.
+    private var coreCount: Double { Double(max(1, model.latest?.cpu?.cores.count ?? 1)) }
+
     private func loadTop() async {
         guard let pinned else { top = []; sparks = [:]; return }
         let history = model.services.history
+        let cores = coreCount
         let entries = await history.topProcesses(at: pinned, by: sort)
         var s: [ProcessID: [Double]] = [:]
         for e in entries {
             let pts = await history.series(for: e.id)
-            s[e.id] = pts.map { sort == .cpu ? $0.cpu : Double($0.memory) }
+            s[e.id] = pts.map { sort == .cpu ? $0.cpu / cores : Double($0.memory) }
         }
         guard !Task.isCancelled else { return }
         top = entries

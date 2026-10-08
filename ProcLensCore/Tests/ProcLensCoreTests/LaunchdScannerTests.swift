@@ -84,6 +84,14 @@ import Testing
         #expect(result.items[0].signing == nil)
     }
 
+    @Test func vendorFromCertificateCommonName() {
+        #expect(VendorGuess.vendorName(fromCertificateCommonName: "Developer ID Application: Forcepoint LLC (ABCDE12345)") == "Forcepoint LLC")
+        #expect(VendorGuess.vendorName(fromCertificateCommonName: "3rd Party Mac Developer Application: Foo Inc (ABCDE12345)") == "Foo Inc")
+        #expect(VendorGuess.vendorName(fromCertificateCommonName: "Software Signing") == "Apple")
+        #expect(VendorGuess.vendorName(fromCertificateCommonName: "Some Name (not team)") == "Some Name (not team)")
+        #expect(VendorGuess.vendorName(fromCertificateCommonName: "  ") == nil)
+    }
+
     @Test func vendorGuess() {
         #expect(VendorGuess.guess(label: "com.apple.foo", program: nil) == "Apple")
         #expect(VendorGuess.guess(label: "homebrew.mxcl.postgresql", program: "/opt/homebrew/bin/pg") != "Apple")

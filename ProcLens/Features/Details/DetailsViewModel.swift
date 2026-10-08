@@ -51,6 +51,9 @@ final class DetailsViewModel {
         didSet {
             guard treeMode != oldValue else { return }
             UserDefaults.standard.set(treeMode, forKey: Self.treeKey)
+            // Entering the tree always starts from its natural order (start time); `sort` is untouched,
+            // so leaving the tree restores the flat-mode descriptors.
+            if treeMode { treeSort = TableSort(key: "start", ascending: true) }
             lastQuery = "\u{0}"
             feed.requestReload()
             if let model { rebuild(model: model) }
@@ -134,12 +137,7 @@ final class DetailsViewModel {
         } else {
             sort = TableSort(key: "pid", ascending: true)
         }
-        if let s = UserDefaults.standard.array(forKey: Self.treeSortKey) as? [String], s.count == 2,
-           Self.columns.contains(where: { $0.id == s[0] }) {
-            treeSort = TableSort(key: s[0], ascending: s[1] == "1")
-        } else {
-            treeSort = TableSort(key: "start", ascending: true)
-        }
+        treeSort = TableSort(key: "start", ascending: true)
         treeMode = UserDefaults.standard.bool(forKey: Self.treeKey)
         #if DEBUG
         if UserDefaults.standard.bool(forKey: "ProcLensDetailsTree") { treeMode = true }

@@ -165,9 +165,17 @@ struct ProcessTableView: NSViewRepresentable {
 
         func syncSortDescriptors() {
             let want = parent.sort
+            // A hidden sort column would leave the header indicator on a stale column: reveal it.
+            if let col = outline.tableColumns.first(where: { $0.identifier.rawValue == want.key }), col.isHidden {
+                col.isHidden = false
+            }
             if let d = outline.sortDescriptors.first, d.key == want.key, d.ascending == want.ascending { return }
             suppressCallbacks = true
             outline.sortDescriptors = [NSSortDescriptor(key: want.key, ascending: want.ascending)]
+            // AppKit leaves the old column's arrow behind when the new sort column is off-screen/restored.
+            for col in outline.tableColumns where col.identifier.rawValue != want.key {
+                outline.setIndicatorImage(nil, in: col)
+            }
             outline.headerView?.needsDisplay = true
             suppressCallbacks = false
         }
@@ -461,6 +469,10 @@ struct ProcessTableView: NSViewRepresentable {
 
         func outlineView(_ outlineView: NSOutlineView, sortDescriptorsDidChange oldDescriptors: [NSSortDescriptor]) {
             guard !suppressCallbacks, let d = outlineView.sortDescriptors.first, let key = d.key else { return }
+            // Only header clicks count; AppKit's autosaved sort-order restore must not override the model.
+            guard let type = NSApp.currentEvent?.type, type == .leftMouseDown || type == .leftMouseUp else {
+                syncSortDescriptors(); return
+            }
             parent.onSortChange(TableSort(key: key, ascending: d.ascending))
         }
 
