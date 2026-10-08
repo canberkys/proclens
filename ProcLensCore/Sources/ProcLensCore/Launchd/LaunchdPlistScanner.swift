@@ -67,8 +67,8 @@ public struct LaunchdPlistScanner: Sendable {
         var result = scan()
         var statusByPath: [String: CodeSignStatus] = [:]
         for index in result.items.indices {
-            let program = result.items[index].program
-            guard program.hasPrefix("/") else { continue }
+            if result.items[index].isInterpreterLaunch { result.items[index].signing = .unsigned; continue }
+            guard let program = result.items[index].signablePath else { continue }
             if let cached = statusByPath[program] {
                 result.items[index].signing = cached
             } else {
@@ -165,7 +165,15 @@ public struct LaunchdPlistScanner: Sendable {
             vendor: nil,
             signing: nil
         )
-        item.vendor = scope.isApple ? "Apple" : VendorGuess.guess(label: label, program: program.isEmpty ? bundleProgram : program)
+        if item.isApple {
+            item.vendor = "Apple"
+        } else if item.isInterpreterLaunch {
+            // The interpreter (/bin/bash, python3...) says nothing about the owner; use the script path and label.
+            let script = item.effectiveProgram
+            item.vendor = VendorGuess.guess(label: label, program: script.hasPrefix("/") ? script : nil, trustProgramPrefix: false)
+        } else {
+            item.vendor = VendorGuess.guess(label: label, program: program.isEmpty ? bundleProgram : program)
+        }
         return .success(item)
     }
 

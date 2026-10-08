@@ -8,10 +8,10 @@ public enum VendorGuess {
                                             "jp", "cn", "ru", "ch", "nl", "tv", "ai"]
     private static let genericSecond: Set<String> = ["github", "homebrew", "mxcl", "user", "local", "startup"]
 
-    public static func guess(label: String, program: String?) -> String? {
+    public static func guess(label: String, program: String?, trustProgramPrefix: Bool = true) -> String? {
         if label.hasPrefix("com.apple.") { return "Apple" }
         if let program, !program.isEmpty {
-            if applePrefixes.contains(where: { program.hasPrefix($0) }) { return "Apple" }
+            if trustProgramPrefix, applePrefixes.contains(where: { program.hasPrefix($0) }) { return "Apple" }
             if let app = appBundleName(in: program) { return app }
         }
         let parts = label.split(separator: ".").map(String.init)

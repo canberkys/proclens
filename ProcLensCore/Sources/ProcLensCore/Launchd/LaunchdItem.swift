@@ -105,7 +105,8 @@ public struct LaunchdItem: Sendable, Hashable, Identifiable {
     public var signing: CodeSignStatus?
 
     public var id: String { plistPath }
-    public var isApple: Bool { scope.isApple }
+    /// Part of macOS: lives under /System/Library or is labelled `com.apple.`.
+    public var isApple: Bool { scope.isApple || label.hasPrefix("com.apple.") }
     public var isEditable: Bool { scope.isEditable }
 
     public var hasScheduleTrigger: Bool {
