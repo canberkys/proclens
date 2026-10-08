@@ -72,8 +72,8 @@ targets:
         INFOPLIST_KEY_CFBundleDisplayName: ProcLens
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
-        MARKETING_VERSION: "0.1.1"
-        CURRENT_PROJECT_VERSION: "2"
+        MARKETING_VERSION: "0.1.2"
+        CURRENT_PROJECT_VERSION: "3"
   # Privileged helper (SMAppService.daemon). Embedded at Contents/MacOS/ProcLensHelper;
   # its launchd plist goes to Contents/Library/LaunchDaemons.
   ProcLensHelper:

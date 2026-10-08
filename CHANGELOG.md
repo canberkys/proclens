@@ -1,5 +1,12 @@
 # Changelog
 
+## 0.1.2
+
+- **The privileged helper now does its job.** With the helper installed (Settings → Helper), root-owned and other users' processes show real CPU, memory, disk and thread values instead of "—", Network Ports lists the ports of system processes, and ending a root-owned process works (critical system processes are still refused).
+- Helper install status updates live, and a never-installed helper reads "Not installed" instead of "Not found".
+- History: dragging the spike threshold no longer makes the tab jump.
+- README: new screenshots (taken from a synthetic demo dataset).
+
 ## 0.1.1
 
 - **Report an Issue** (Help menu): send a bug report or feature request from inside the app. It becomes a GitHub issue; you see exactly which diagnostics are attached before sending (app and macOS version, Mac model, helper status — never process names, paths or personal data).
