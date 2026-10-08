@@ -12,7 +12,7 @@ import ProcLensCore
 struct DemoWave: Sendable {
     var phase: (Double, Double, Double)
     var rate: (Double, Double, Double)
-    static let amplitude = (0.5, 0.25, 0.15)
+    static let amplitude = (0.55, 0.3, 0.1)
 
     /// Multiplier around 1.0, never below 0.1.
     func factor(_ t: Double) -> Double {
@@ -47,7 +47,10 @@ struct DemoProc: Sendable {
     var id: ProcessID { ProcessID(pid: pid, startTime: startTime) }
     var startAbs: UInt64 { startTime &* 1000 }
 
-    func cpuNow(_ t: Double) -> Double { restricted ? 0 : cpu * wave.factor(t) }
+    func cpuNow(_ t: Double) -> Double {
+        if restricted { return 0 }
+        return cpu * wave.factor(t) + DemoWorld.burst(t) * DemoWorld.burstCores(for: name)
+    }
     func memoryNow(_ t: Double) -> UInt64 {
         restricted ? 0 : UInt64(memory * (1 + 0.025 * sin(0.05 * t + wave.phase.1) + 0.01 * sin(0.4 * t + wave.phase.0)))
     }
@@ -74,6 +77,28 @@ enum DemoWorld {
     ]
 
     static var now: Double { Date().timeIntervalSince(epoch) }
+
+    /// Three past "builds" (seconds relative to launch) that push the machine over 80%. Shape is a smooth bump, 0...1.
+    private static let bursts: [(center: Double, width: Double, peak: Double)] = [(-2_760, 55, 1.0), (-1_620, 70, 0.97), (-540, 50, 0.93)]
+    static func burst(_ t: Double) -> Double {
+        var b = 0.0
+        for burst in bursts where abs(t - burst.center) < burst.width * 4 {
+            let x = (t - burst.center) / burst.width
+            b = max(b, burst.peak * exp(-x * x))
+        }
+        return b
+    }
+    /// Extra cores a process burns at burst = 1.
+    static func burstCores(for name: String) -> Double {
+        switch name {
+        case "swift-frontend": 5.5
+        case "Xcode", "SourceKitService": 0.8
+        case "XCBBuildService": 1.0
+        default: 0
+        }
+    }
+    /// Seconds-ago of the middle burst (for `-ProcLensHistoryAt`).
+    static let pinnedBurstAgo = 1_620.0
 
     struct App: Sendable {
         let pid: pid_t
@@ -136,7 +161,7 @@ enum DemoWorld {
             used.insert(p)
             let wave = DemoWave(
                 phase: (rng.range(0, 6.28), rng.range(0, 6.28), rng.range(0, 6.28)),
-                rate: (rng.range(0.05, 0.14), rng.range(0.15, 0.32), rng.range(0.4, 0.9)))
+                rate: (rng.range(0.002, 0.005), rng.range(0.006, 0.012), rng.range(0.012, 0.022)))
             let start = UInt64((base - age - rng.range(0, 600)) * 1_000_000)
             list.append(DemoProc(pid: p, ppid: ppid, uid: uid, name: name, path: path, argv: argv ?? [path ?? name],
                                  restricted: restricted, cpu: cpu, memory: mb * 1_048_576, threads: threads,
@@ -288,14 +313,14 @@ enum DemoWorld {
         add("figma_agent", path: "/Users/demo/Library/Application Support/Figma/FigmaAgent.app/Contents/MacOS/figma_agent",
             mb: 38, cpu: 0.002, threads: 6, age: 30 * 3600)
 
-        let code = app("Visual Studio Code", bundle: "Visual Studio Code", id: "com.microsoft.VSCode", exe: "Electron",
+        let code = app("Visual Studio Code", bundle: "Visual Studio Code", id: "com.microsoft.VSCode", exe: "Code",
                        mb: 318, cpu: 0.04, threads: 30, age: 6 * 3600, disk: 55_000)
         let cd = "/Applications/Visual Studio Code.app/Contents/Frameworks/Code Helper"
         add("Code Helper (GPU)", path: "\(cd) (GPU).app/Contents/MacOS/Code Helper (GPU)", ppid: code, mb: 186, cpu: 0.03, threads: 14, age: 6 * 3600)
         add("Code Helper (Renderer)", path: "\(cd) (Renderer).app/Contents/MacOS/Code Helper (Renderer)", ppid: code, mb: 612, cpu: 0.07, threads: 22, age: 6 * 3600)
         let ext = add("Code Helper (Plugin)", path: "\(cd) (Plugin).app/Contents/MacOS/Code Helper (Plugin)", ppid: code, mb: 448, cpu: 0.05, threads: 18, age: 6 * 3600, disk: 20_000)
         add("Code Helper", path: "\(cd).app/Contents/MacOS/Code Helper", ppid: code, mb: 92, cpu: 0.006, threads: 10, age: 6 * 3600)
-        add("node", path: "/opt/homebrew/Cellar/node/22.11.0/bin/node",
+        let tsserver = add("node", path: "/opt/homebrew/Cellar/node/22.11.0/bin/node",
             argv: ["/opt/homebrew/Cellar/node/22.11.0/bin/node", "/Users/demo/projects/webapp/node_modules/typescript/lib/tsserver.js", "--useInferredProjectPerProjectRoot"],
             ppid: ext, mb: 524, cpu: 0.08, threads: 11, age: 5 * 3600, disk: 30_000)
 
@@ -354,6 +379,7 @@ enum DemoWorld {
         }
 
         let controlCenter = list.first { $0.name == "ControlCenter" }!.pid
+        func pidOf(_ name: String) -> pid_t { list.first { $0.name == name }!.pid }
         listeners = [
             DemoListener(port: 3000, pid: next, loopbackOnly: false),
             DemoListener(port: 5173, pid: vite, loopbackOnly: true),
@@ -361,6 +387,11 @@ enum DemoWorld {
             DemoListener(port: 6379, pid: redis, loopbackOnly: true),
             DemoListener(port: 7000, pid: controlCenter, loopbackOnly: false),
             DemoListener(port: 8000, pid: django, loopbackOnly: true),
+            DemoListener(port: 5000, pid: controlCenter, loopbackOnly: false),
+            DemoListener(port: 8080, pid: pidOf("com.docker.backend"), loopbackOnly: true),
+            DemoListener(port: 9229, pid: tsserver, loopbackOnly: true),
+            DemoListener(port: 11434, pid: pidOf("ollama"), loopbackOnly: true),
+            DemoListener(port: 49152, pid: pidOf("rapportd"), loopbackOnly: false),
         ]
         return Built(processes: list, apps: apps, listeners: listeners,
                      byPID: Dictionary(uniqueKeysWithValues: list.map { ($0.pid, $0) }),
@@ -391,15 +422,14 @@ enum DemoWorld {
 
     static func cpuSample(at t: Double) -> CPUSample {
         prepare()
-        var cores = 0.0
-        for p in processes { cores += p.cpuNow(t) }
-        cores += 1.1 * hiddenWave.factor(t)
-        let target = min(0.92, cores / Double(coreCount))
+        let baseline = 0.22 + 0.045 * sin(0.0042 * t + 0.6) + 0.025 * sin(0.013 * t + 2.0) + 0.008 * sin(0.05 * t)
+        let b = burst(t)
+        let target = min(0.95, baseline + b * (0.93 - baseline))
         var raw: [Double] = []
         for i in 0..<coreCount {
             let efficiency = i < efficiencyCores
-            let w = 1 + 0.55 * sin(0.12 * t + Double(i) * 1.7) + 0.2 * sin(0.45 * t + Double(i) * 0.9)
-            raw.append(max(0.02, (efficiency ? 1.35 : 0.85) * w))
+            let w = 1 + 0.35 * sin(0.03 * t + Double(i) * 1.7) + 0.15 * sin(0.09 * t + Double(i) * 0.9)
+            raw.append(max(0.02, (efficiency ? 1.25 : 0.9) * w))
         }
         let mean = raw.reduce(0, +) / Double(raw.count)
         let scale = target / mean

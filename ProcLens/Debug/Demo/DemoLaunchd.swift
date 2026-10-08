@@ -30,12 +30,12 @@ enum DemoLaunchd {
         Job(label: "com.docker.helper", scope: .userAgent,
             arguments: ["/Applications/Docker.app/Contents/MacOS/com.docker.backend", "services"],
             keepAlive: true, signer: "Docker Inc", team: "DEMODOC001", runningProcess: "com.docker.backend"),
-        Job(label: "org.postgresql.postgres", scope: .userAgent,
+        Job(label: "homebrew.mxcl.postgresql@16", scope: .userAgent,
             arguments: ["/opt/homebrew/opt/postgresql@16/bin/postgres", "-D", "/opt/homebrew/var/postgresql@16"],
-            keepAlive: true, runningProcess: "postgres"),
+            keepAlive: true, signer: "Homebrew", runningProcess: "postgres"),
         Job(label: "homebrew.mxcl.redis", scope: .userAgent,
             arguments: ["/opt/homebrew/opt/redis/bin/redis-server", "/opt/homebrew/etc/redis.conf"],
-            keepAlive: true, runningProcess: "redis-server"),
+            keepAlive: true, signer: "Homebrew", runningProcess: "redis-server"),
         Job(label: "com.microsoft.VSCode.ShipIt", scope: .userAgent,
             arguments: ["/Users/demo/Library/Caches/com.microsoft.VSCode.ShipIt/ShipIt", "com.microsoft.VSCode.ShipIt", "--launch"],
             runAtLoad: false, watchPaths: ["/Users/demo/Library/Caches/com.microsoft.VSCode.ShipIt/ShipItState.plist"],
@@ -84,6 +84,26 @@ enum DemoLaunchd {
 
     // MARK: - Plists
 
+    /// Where the job's plist appears to live (the real files sit in a scratch directory).
+    static func displayPath(label: String, scope: LaunchdScope) -> String {
+        let dir: String = switch scope {
+        case .userAgent: "/Users/demo/Library/LaunchAgents"
+        case .globalAgent: "/Library/LaunchAgents"
+        case .globalDaemon: "/Library/LaunchDaemons"
+        case .appleAgent: "/System/Library/LaunchAgents"
+        case .appleDaemon: "/System/Library/LaunchDaemons"
+        }
+        return "\(dir)/\(label).plist"
+    }
+
+    static func relocated(_ items: [LaunchdItemStatus]) -> [LaunchdItemStatus] {
+        items.map { status in
+            var s = status
+            s.item.plistPath = displayPath(label: s.item.label, scope: s.item.scope)
+            return s
+        }
+    }
+
     static let root: URL = {
         let dir = URL(fileURLWithPath: "/private/tmp/proclens-demo", isDirectory: true)
         try? FileManager.default.removeItem(at: dir)
@@ -98,7 +118,7 @@ enum DemoLaunchd {
             if let calendar = job.calendar { plist["StartCalendarInterval"] = calendar }
             if !job.watchPaths.isEmpty { plist["WatchPaths"] = job.watchPaths }
             if !job.machServices.isEmpty { plist["MachServices"] = Dictionary(uniqueKeysWithValues: job.machServices.map { ($0, true) }) }
-            if job.scope == .userAgent, job.label.hasPrefix("org.") || job.label.hasPrefix("homebrew") {
+            if job.label.hasPrefix("homebrew") {
                 plist["StandardOutPath"] = "/opt/homebrew/var/log/\(job.label).log"
             }
             let name: String = switch job.scope {
@@ -160,7 +180,7 @@ struct DemoLaunchctlRunner: LaunchctlRunning {
                 return LaunchctlOutput(status: 113, stdout: "", stderr: "Could not find service \"\(label)\" in domain for \(target)")
             }
             let pid = job.runningProcess.flatMap { n in DemoWorld.processes.first { $0.name == n }.map { Int($0.pid) } }
-            var text = "\(target) = {\n\tactive count = \(pid == nil ? 0 : 1)\n\tpath = \(DemoLaunchd.root.path)/\(job.label).plist\n\ttype = LaunchAgent\n"
+            var text = "\(target) = {\n\tactive count = \(pid == nil ? 0 : 1)\n\tpath = \(DemoLaunchd.displayPath(label: job.label, scope: job.scope))\n\ttype = LaunchAgent\n"
             text += "\tstate = \(pid == nil ? "not running" : "running")\n\tprogram = \(job.arguments[0])\n\targuments = {\n"
             text += job.arguments.map { "\t\t\($0)\n" }.joined() + "\t}\n\tdomain = \(target.split(separator: "/").first.map(String.init) ?? "gui/501") [100003]\n"
             if let pid { text += "\tpid = \(pid)\n\truns = 1\n\tlast exit code = (never exited)\n" } else { text += "\truns = 0\n\tlast exit code = 0\n" }

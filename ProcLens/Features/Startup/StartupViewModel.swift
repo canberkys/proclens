@@ -49,6 +49,9 @@ final class StartupViewModel {
         helperEnabled = services.helper.registrationStatus() == .enabled
         let snapshot = await services.launchd.snapshot()
         items = snapshot.items
+        #if DEBUG
+        if DemoMode.isActive { items = DemoLaunchd.relocated(items) }
+        #endif
         invalid = snapshot.invalid
         warnings = snapshot.warnings
         #if DEBUG
