@@ -27,6 +27,7 @@ struct SettingsView: View {
                 .onChange(of: showDock) { _, _ in AppPresentation.applyStoredActivationPolicy() }
             LabeledContent("Open ProcLens shortcut") { HotKeyRecorder() }
             HelperSection()
+            UpdatesSection()
         }
         .formStyle(.grouped)
         .frame(width: 400)

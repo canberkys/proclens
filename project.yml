@@ -25,6 +25,8 @@ targets:
     platform: macOS
     sources:
       - path: ProcLens
+      - path: CHANGELOG.md
+        buildPhase: resources
       - path: ProcLensHelper/com.canberkki.ProcLens.helper.plist
         buildPhase:
           copyFiles:

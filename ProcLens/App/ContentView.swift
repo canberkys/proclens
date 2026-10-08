@@ -88,8 +88,7 @@ struct ContentView: View {
                 Button { showEndByPID = true } label: {
                     Label("End process by PID…", systemImage: "number.circle")
                 }
-                .keyboardShortcut("k", modifiers: .command)
-                .help("End process by PID (⌘K)")
+                .help("End process by PID (⌘K, Process menu)")
                 .accessibilityLabel("End process by PID")
             }
         }
@@ -98,7 +97,8 @@ struct ContentView: View {
         .sheet(isPresented: $showEndByPID) { EndByPIDSheet() }
         .sheet(isPresented: $showAbout) { AboutView() }
         .focusedSceneValue(\.windowActions, WindowActions(showEndByPID: { showEndByPID = true },
-                                                            showAbout: { showAbout = true }))
+                                                            showAbout: { showAbout = true },
+                                                            select: { selection = $0 }))
         #if DEBUG
         .task { await SelfTest.runIfRequested(model: model, actions: actions) }
         #endif

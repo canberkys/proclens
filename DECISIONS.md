@@ -11,6 +11,13 @@ Architecture decisions and code reuse log. Newest first.
 
 ---
 
+### 2026-10-08 — Own lightweight update checker instead of Sparkle; menu bar and in-app Help
+- **Decision:** Updates use `UpdateChecker` (`Features/Updates`): one `URLSession` GET of `api.github.com/repos/canberkys/proclens/releases/latest` (10 s timeout, `User-Agent: ProcLens/<version>`), compared with `CFBundleShortVersionString` through `SemanticVersion` (ProcLensCore, tested). Manual "Check for Updates…" always works; the automatic daily check is OFF by default (Settings → Updates, at most once per 24 h, on launch + hourly timer). 404 is shown as "No releases published yet". "Download" opens the release page. Also: the main menu is built in `ProcLensCommands` (⌘1…⌘7 via `WindowActions.select`, process actions via a `selectedProcessIDs` focused scene value published by Processes and Details), ⌘I and ⌘K moved from toolbar buttons to the Process menu, Help/Release Notes/Updates are `Window` scenes, Help content is Swift literals, CHANGELOG.md is bundled as a resource.
+- **Why:** No dependency and no extra bundle size (SPEC §2, bundle budget); the only network call is explicit or opt-in.
+- **Tradeoff:** No auto-install, no delta updates, no signature check of a downloaded update (the user downloads the notarized DMG from the release page). Homebrew users update with `brew upgrade`.
+- **Alternatives considered:** Sparkle (EdDSA-signed in-place updates, but ~1.5 MB framework, XPC services, appcast hosting, and a dependency in a no-dependency app).
+- **Note:** A bare ⌫ is not bound in the menu (it would swallow Delete in text fields); the tables handle Delete themselves. Force Quit is ⌥⌫.
+
 ### 2026-10-08 — Phase 1–3 complete on `phase-1`; final measurements
 - **Decision:** The bundle target is now ≤ 8 MB universal.
 - **Measured** (Release, ~1,050 processes, 30 s cputime delta):
