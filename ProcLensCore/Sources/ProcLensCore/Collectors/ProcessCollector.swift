@@ -1,4 +1,5 @@
 import Darwin
+import ProcLensHelperProtocol
 
 /// Produces a `ProcessTable` each tick from a `ProcessSource`.
 ///
@@ -60,8 +61,30 @@ public actor ProcessCollector: Collector {
     /// Reads that must look idle before a process is throttled to every other tick.
     static let idleStreakForThrottle = 3
 
+    /// Thread counts of helper-backed pids are refreshed every n-th helper request.
+    static let helperInfoInterval: UInt64 = 5
+
+    private struct HelperRequest {
+        var generation: UInt64
+        /// Tick instant of the request; rates of helper-backed pids are computed against it.
+        var instant: ContinuousClock.Instant
+        var targets: [pid_t: ProcessID]
+        var withInfo: Bool
+    }
+
     private let source: any ProcessSource
     private let idleThrottling: Bool
+    private let restricted: (any RestrictedProcessSource)?
+    private let helperSlowThreshold: Duration
+    private let helperTimeout: Duration
+    private let helperMaxBackoff: Duration
+    private var helperTask: Task<Void, Never>?
+    private var helperWatchdog: Task<Void, Never>?
+    private var helperGeneration: UInt64 = 0
+    private var helperFailures = 0
+    private var helperNextAllowed: ContinuousClock.Instant?
+    private var helperRequests: UInt64 = 0
+    private var helperActive = false
     private var cache: [pid_t: Entry] = [:]
     private var pidBuffer: [pid_t] = []
     private var tick: UInt64 = 0
@@ -70,13 +93,25 @@ public actor ProcessCollector: Collector {
     ///   3 consecutive reads is read only every other tick (its last sample is reused in between and
     ///   rates are computed over the real interval). Halves the dominant syscall cost on mostly-idle
     ///   systems; a process waking up is noticed up to 1 tick later. Default off.
-    public init(source: any ProcessSource, idleThrottling: Bool = false) {
+    ///   - restricted: optional privileged source for processes `proc_pid_rusage` denies. While it is enabled, one
+    ///     batched request per tick runs in the background (the tick never waits for it); its reply is merged into
+    ///     the cache and shows from the next tick. Slow (> `helperSlowThreshold`) or failing requests back off
+    ///     exponentially (1 s ... `helperMaxBackoff`) and the last values stay.
+    public init(source: any ProcessSource, idleThrottling: Bool = false, restricted: (any RestrictedProcessSource)? = nil,
+                helperSlowThreshold: Duration = .milliseconds(200),
+                helperTimeout: Duration = .seconds(2),
+                helperMaxBackoff: Duration = .seconds(30)) {
         self.source = source
         self.idleThrottling = idleThrottling
+        self.restricted = restricted
+        self.helperSlowThreshold = helperSlowThreshold
+        self.helperTimeout = helperTimeout
+        self.helperMaxBackoff = helperMaxBackoff
     }
 
     public func reset() {
         for e in cache.values { e.counters = nil; e.lastRead = nil; e.idleStreak = 0 }
+        abandonHelperRequest()
     }
 
     /// Parsed argv/env for the inspector. On demand only; never on the sampling path.
@@ -86,6 +121,7 @@ public actor ProcessCollector: Collector {
 
     public func sample(at instant: ContinuousClock.Instant) async throws -> ProcessTable {
         try source.allPIDs(into: &pidBuffer)
+        syncHelperEnabled()
         tick &+= 1
         let tick = self.tick
 
@@ -166,7 +202,114 @@ public actor ProcessCollector: Collector {
         if cache.count != seenCount {  // prune vanished processes
             for (pid, e) in cache where e.seen != tick { cache[pid] = nil }
         }
+        driveHelper(at: instant, tick: tick)
         return ProcessTable(processes: table)
+    }
+
+    // MARK: - Privileged helper merge
+
+    /// Waits for the in-flight helper request (tests).
+    func awaitHelperIdle() async {
+        await helperTask?.value
+    }
+
+    private func abandonHelperRequest() {
+        helperGeneration &+= 1
+        helperTask = nil
+        helperWatchdog?.cancel()
+        helperWatchdog = nil
+    }
+
+    /// Helper uninstalled or revoked at runtime: back to "restricted" before this tick's table is built.
+    private func syncHelperEnabled() {
+        guard let restricted, helperActive, !restricted.isEnabled else { return }
+        helperActive = false
+        abandonHelperRequest()
+        helperFailures = 0; helperNextAllowed = nil
+        for e in cache.values where e.sample.viaHelper { Self.revertToRestricted(e) }
+    }
+
+    /// Starts at most one background request for the restricted pids still alive this tick.
+    private func driveHelper(at instant: ContinuousClock.Instant, tick: UInt64) {
+        guard let restricted, restricted.isEnabled else { return }
+        helperActive = true
+        guard helperTask == nil else { return }
+        if let next = helperNextAllowed, instant < next { return }
+        var targets: [pid_t: ProcessID] = [:]
+        for (pid, e) in cache where !e.usageReadable && e.seen == tick { targets[pid] = e.sample.id }
+        guard !targets.isEmpty else { return }
+
+        helperRequests &+= 1
+        let withInfo = helperRequests % Self.helperInfoInterval == 1
+        helperGeneration &+= 1
+        let request = HelperRequest(generation: helperGeneration, instant: instant, targets: targets, withInfo: withInfo)
+        let pids = Array(targets.keys)
+        let clock = ContinuousClock()
+        let started = clock.now
+        helperTask = Task {
+            do {
+                async let usage = restricted.readRusage(pids: pids)
+                let infos = withInfo ? try await restricted.readProcessInfo(pids: pids) : []
+                let usages = try await usage
+                finishHelper(request, usages: usages, infos: infos, elapsed: started.duration(to: clock.now), failed: false)
+            } catch {
+                finishHelper(request, usages: [], infos: [], elapsed: started.duration(to: clock.now), failed: true)
+            }
+        }
+        let timeout = helperTimeout
+        helperWatchdog = Task {
+            try? await Task.sleep(for: timeout)
+            guard !Task.isCancelled else { return }
+            finishHelper(request, usages: [], infos: [], elapsed: timeout, failed: true)
+        }
+    }
+
+    private func finishHelper(_ request: HelperRequest, usages: [HelperRusage], infos: [HelperProcessInfo],
+                              elapsed: Duration, failed: Bool) {
+        guard request.generation == helperGeneration else { return }  // superseded (reset / disabled / timed out)
+        helperWatchdog?.cancel()
+        helperWatchdog = nil
+        helperTask = nil
+        if !failed { mergeHelper(request, usages: usages, infos: infos) }
+        if failed || elapsed > helperSlowThreshold {
+            helperFailures += 1
+            let seconds = min(Double(1 << min(helperFailures - 1, 10)), Double(helperMaxBackoff.components.seconds))
+            helperNextAllowed = request.instant.advanced(by: .seconds(seconds))
+        } else {
+            helperFailures = 0
+            helperNextAllowed = nil
+        }
+    }
+
+    private func mergeHelper(_ request: HelperRequest, usages: [HelperRusage], infos: [HelperProcessInfo]) {
+        for r in usages {
+            // The pid must still be the process the request was made for (pid reuse since).
+            guard let id = request.targets[r.pid], let e = cache[r.pid], e.sample.id == id, !e.usageReadable else { continue }
+            if e.startAbs != 0 && e.startAbs != r.startAbsTime {  // reused between two helper reads: no stale delta
+                e.counters = nil; e.lastRead = nil
+            }
+            e.startAbs = r.startAbsTime
+            let usage = ResourceUsage(userTime: r.userTime, systemTime: r.systemTime, physFootprint: r.physFootprint,
+                                      diskBytesRead: r.diskBytesRead, diskBytesWritten: r.diskBytesWritten,
+                                      billedEnergy: r.billedEnergy, interruptWakeups: r.interruptWakeups,
+                                      packageIdleWakeups: r.packageIdleWakeups, startAbsTime: r.startAbsTime)
+            Self.apply(usage, to: e, at: request.instant)
+            e.sample.isRestricted = false
+            e.sample.viaHelper = true
+        }
+        for i in infos {
+            guard let id = request.targets[i.pid], let e = cache[i.pid], e.sample.id == id, e.sample.viaHelper else { continue }
+            if i.threadCount > 0 { e.sample.threadCount = i.threadCount }
+            if e.sample.path == nil { e.sample.path = i.path }
+        }
+    }
+
+    private static func revertToRestricted(_ e: Entry) {
+        e.counters = nil; e.lastRead = nil; e.startAbs = 0
+        e.sample.viaHelper = false
+        e.sample.isRestricted = true
+        e.sample.memory = 0; e.sample.cpu = 0; e.sample.energy = 0
+        e.sample.diskReadPerSec = 0; e.sample.diskWritePerSec = 0
     }
 
     /// Full identity read for a new (or reused) pid.

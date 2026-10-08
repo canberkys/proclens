@@ -159,9 +159,11 @@ struct NetworkPortsView: View {
         HStack(spacing: 8) {
             Text("\(count) listener\(count == 1 ? "" : "s")").foregroundStyle(.secondary)
             Spacer()
-            Image(systemName: "lock.shield").foregroundStyle(.secondary)
-            Text("Ports of system processes need the ProcLens helper").foregroundStyle(.secondary)
-            SettingsLink { Text("Open Settings") }
+            if !model.services.helperEnabled {
+                Image(systemName: "lock.shield").foregroundStyle(.secondary)
+                Text("Ports of system processes need the ProcLens helper").foregroundStyle(.secondary)
+                SettingsLink { Text("Open Settings") }
+            }
         }
         .font(.callout)
         .padding(.horizontal, 12).padding(.vertical, 7)

@@ -42,6 +42,10 @@ final class AppModel {
     @ObservationIgnored private var appsRefreshPending = false
     @ObservationIgnored private var workspaceObservers: [NSObjectProtocol] = []
 
+    /// The privileged helper, unless PROCLENS_NO_HELPER=1 (A/B overhead measurements).
+    private static let helperSource: (any RestrictedProcessSource)? =
+        ProcessInfo.processInfo.environment["PROCLENS_NO_HELPER"] == "1" ? nil : HelperClient.shared
+
     init() {
         #if DEBUG
         if DemoMode.isActive {  // synthetic machine: nothing below touches the real process table
@@ -57,7 +61,7 @@ final class AppModel {
             return
         }
         #endif
-        processCollector = ProcessCollector(source: LiveProcessSource(), idleThrottling: true)
+        processCollector = ProcessCollector(source: LiveProcessSource(), idleThrottling: true, restricted: AppModel.helperSource)
         services = AppServices()
         let host = LiveHostSource()
         let ioreg = LiveIORegistrySource()

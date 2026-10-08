@@ -1,5 +1,6 @@
 import Darwin
 import Foundation
+import ProcLensHelperProtocol
 
 /// Signals and liveness checks, behind a protocol so the escalation logic is testable.
 public protocol ProcessController: Sendable {
@@ -61,12 +62,33 @@ public actor TreeKiller {
     private let controller: any ProcessController
     private let policy: ProtectionPolicy
     private let ownPID: pid_t
+    private let privileged: (any PrivilegedSignaller)?
 
+    /// - Parameter privileged: when it is enabled, a signal that fails with `EPERM` is retried through it
+    ///   (the privileged helper, which still refuses critical processes).
     public init(controller: any ProcessController = LiveProcessController(), policy: ProtectionPolicy = ProtectionPolicy(),
-                ownPID: pid_t = getpid()) {
+                ownPID: pid_t = getpid(), privileged: (any PrivilegedSignaller)? = nil) {
         self.controller = controller
         self.policy = policy
         self.ownPID = ownPID
+        self.privileged = privileged
+    }
+
+    /// `kill(2)`, then the privileged retry on `EPERM`. Returns 0 or an errno.
+    private func send(_ signal: Int32, to id: ProcessID, name: String) async -> Int32 {
+        let err = controller.send(signal, to: id.pid)
+        guard err == EPERM, let privileged, privileged.isEnabled else { return err }
+        do {
+            try await privileged.signalProcess(pid: id.pid, signal: signal, expectedStartTime: id.startTime, expectedName: name)
+            return 0
+        } catch let failure as HelperFailure {
+            switch failure.code {
+            case .notFound, .processChanged: return ESRCH
+            default: return EPERM
+            }
+        } catch {
+            return EPERM
+        }
     }
 
     /// Kills `root` and its descendants as found in `table`. Callers must have confirmed with the user.
@@ -94,11 +116,13 @@ public actor TreeKiller {
                 continue
             }
             // Guard against pid reuse since the table was sampled.
-            guard let start = controller.startTime(pid: id.pid), start == id.startTime, controller.isAlive(pid: id.pid) else {
+            // Start times of processes this app cannot read are 0 on both sides (the helper checks them instead).
+            let sameProcess = controller.startTime(pid: id.pid).map { $0 == id.startTime } ?? (id.startTime == 0)
+            guard sameProcess, controller.isAlive(pid: id.pid) else {
                 results[id] = KillResult(id: id, name: sample.name, outcome: .alreadyGone)
                 continue
             }
-            let err = controller.send(SIGTERM, to: id.pid)
+            let err = await send(SIGTERM, to: id, name: sample.name)
             if err == ESRCH {
                 results[id] = KillResult(id: id, name: sample.name, outcome: .alreadyGone)
             } else if err != 0 {
@@ -115,7 +139,7 @@ public actor TreeKiller {
 
         if !survivors.isEmpty {
             // Children first again, so a supervising parent can't respawn them mid-escalation.
-            for id in order where survivors.contains(id) { _ = controller.send(SIGKILL, to: id.pid) }
+            for id in order where survivors.contains(id) { _ = await send(SIGKILL, to: id, name: table.processes[id]?.name ?? "") }
             survivors = await waitForExit(Array(survivors), timeout: .seconds(2), poll: pollInterval)
             for id in order where pending.contains(id) && results[id] == nil {
                 let name = table.processes[id]?.name ?? ""

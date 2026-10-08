@@ -12,6 +12,8 @@ final class HelperStatusModel {
     let isSignedBuild: Bool
 
     @ObservationIgnored private var helper: HelperClient?
+    /// Called after every refresh so the rest of the app follows install/uninstall without a relaunch.
+    @ObservationIgnored var onChange: (() -> Void)?
 
     init() { isSignedBuild = Self.hasTeamIdentifier() }
 
@@ -22,7 +24,8 @@ final class HelperStatusModel {
 
     func refresh() {
         guard let helper else { return }
-        status = helper.registrationStatus()
+        status = helper.registrationStatus(forceRefresh: true)
+        onChange?()
     }
 
     var isEnabled: Bool { status == .enabled }

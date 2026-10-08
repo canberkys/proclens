@@ -34,7 +34,10 @@ final class ProcessesViewModel {
     private static let sortKey = "ProcLens.processes.sort"
 
     /// Tooltip for every value the sampler could not read for a root-owned process.
-    static let restrictedTip = "Not permitted without the helper (Phase 2)"
+    /// Mirrors `AppServices.helperEnabled` (set there) so cached rows get the right wording.
+    static var helperEnabled = false
+    /// Without the helper the data is out of reach; with it, the helper could not supply it for this process.
+    static var restrictedTip: String { helperEnabled ? "Not available for this process" : "Not permitted without the helper" }
     static let dash = "—"
 
     init() {

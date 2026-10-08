@@ -18,10 +18,13 @@ public struct ProcessSample: Sendable, Hashable, Identifiable {
     public var energy: Double
     /// True when some fields could not be read (`EPERM`).
     public var isRestricted: Bool
+    /// True when the values come from the privileged helper (the process is not readable by this app).
+    /// Such a process has `isRestricted == false` but still cannot be inspected directly (argv, fds, ...).
+    public var viaHelper: Bool
 
     public init(id: ProcessID, ppid: pid_t, uid: uid_t, name: String, path: String?, threadCount: Int32,
                 isTranslated: Bool, cpu: Double, memory: UInt64, diskReadPerSec: Double, diskWritePerSec: Double,
-                energy: Double, isRestricted: Bool) {
+                energy: Double, isRestricted: Bool, viaHelper: Bool = false) {
         self.id = id
         self.ppid = ppid
         self.uid = uid
@@ -35,6 +38,7 @@ public struct ProcessSample: Sendable, Hashable, Identifiable {
         self.diskWritePerSec = diskWritePerSec
         self.energy = energy
         self.isRestricted = isRestricted
+        self.viaHelper = viaHelper
     }
 
     public var pid: pid_t { id.pid }
