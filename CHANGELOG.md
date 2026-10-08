@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1
+
+- **Report an Issue** (Help menu): send a bug report or feature request from inside the app. It becomes a GitHub issue; you see exactly which diagnostics are attached before sending (app and macOS version, Mac model, helper status — never process names, paths or personal data).
+- If sending fails, the report opens pre-filled on GitHub in your browser instead.
+
 ## 0.1.0
 
 First release: Phases 1 to 3.
