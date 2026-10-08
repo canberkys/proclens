@@ -6,32 +6,22 @@
         <description>ProcLens release updates</description>
         <language>en</language>
         <item>
-            <title>Version 0.1.0</title>
-            <pubDate>Thu, 08 Oct 2026 07:56:42 +0000</pubDate>
-            <sparkle:version>1</sparkle:version>
-            <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
+            <title>Version 0.1.1</title>
+            <pubDate>Thu, 08 Oct 2026 08:11:44 +0000</pubDate>
+            <sparkle:version>2</sparkle:version>
+            <sparkle:shortVersionString>0.1.1</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <description><![CDATA[
-<p>First release: Phases 1 to 3.</p>
 <ul>
-<li>Processes tab with Apps, Background and System groups, heat-mapped CPU, memory, energy, disk, network and GPU columns, search and Windows-style keys (Delete ends a task).</li>
-<li>Performance tab with live 60 s graphs for CPU (per core, P/E cores), memory composition and pressure, GPU, disk and network.</li>
-<li>Details tab with PID, parent, user, architecture, code signature and command line, a stable process tree view, and a per-process Inspector (open files, sockets, libraries, environment, entitlements).</li>
-<li>Network Ports tab listing every listening port with its owner, dev-server detection and one-click end of the whole server tree.</li>
-<li>Startup and Services tabs for login items and launchd agents and daemons, with enable, disable and restart.</li>
-<li>Optional privileged helper (signed builds) for root-owned processes and system launchd jobs.</li>
-<li>History tab (last hour, spikes, top processes at any moment) and threshold alerts with notifications.</li>
-<li>Menu bar CPU indicator with a quick panel (gauges, search, top processes, dev servers) and a configurable global shortcut.</li>
-<li>In-app Help, complete menus (⌘1–⌘7 tabs, Process menu) and automatic updates via Sparkle.</li>
-<li>Separate <code>proclens</code> command-line tool: ps, top, ports, kill, launchd and system with JSON and CSV output.</li>
-<li>No telemetry. The only network request is the Sparkle update check (daily at most, can be turned off).</li>
+<li><strong>Report an Issue</strong> (Help menu): send a bug report or feature request from inside the app. It becomes a GitHub issue; you see exactly which diagnostics are attached before sending (app and macOS version, Mac model, helper status — never process names, paths or personal data).</li>
+<li>If sending fails, the report opens pre-filled on GitHub in your browser instead.</li>
 </ul>
             ]]></description>
             <enclosure
-                url="https://github.com/canberkys/proclens/releases/download/v0.1.0/ProcLens-0.1.0.dmg"
-                length="4872660"
+                url="https://github.com/canberkys/proclens/releases/download/v0.1.1/ProcLens-0.1.1.dmg"
+                length="4936969"
                 type="application/octet-stream"
-                sparkle:edSignature="242hMhGobw8VPwrwt54v8y+AtLdFK7vAfkD0FeBt/bjr/BfIss6ttKQz9ivlHO4rW9tlc23f2eiEJoPcXKpnDg==" />
+                sparkle:edSignature="WKLj2cb2IrArjcYLm1UfoyjFgVGyoIAXKbBPx8mBpnwTbxxxzliUdUSd0QvUzYq3jkMsOiOPpq6arYMXx3o4DQ==" />
         </item>
     </channel>
 </rss>

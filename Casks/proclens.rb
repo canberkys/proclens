@@ -1,6 +1,6 @@
 cask "proclens" do
-  version "0.1.0"
-  sha256 "97e01d98aac377bb24143fa7b5959f955969eb28310a85186ee028cb25b4defb"
+  version "0.1.1"
+  sha256 "a9eea0cc3e3eef9f0914e305c51d8a4df2bedde8170f1e4df25bfc4cc3580b17"
 
   url "https://github.com/canberkys/proclens/releases/download/v#{version}/ProcLens-#{version}.dmg"
   name "ProcLens"
