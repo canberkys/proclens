@@ -121,8 +121,13 @@ fi
 # ---------- 2. signing identity ----------
 step "Resolving signing identity"
 if [ -z "${SIGN_IDENTITY:-}" ]; then
-    SIGN_IDENTITY="$(security find-identity -v -p codesigning 2>/dev/null \
-        | sed -n 's/.*"\(Developer ID Application:[^"]*\)".*/\1/p' | head -1)"
+    # Use the SHA-1 hash, not the name: names with non-ASCII characters (e.g. "Ç") come back
+    # mangled from `security` and codesign then reports "no identity found".
+    IDENTITY_LINE="$(security find-identity -v -p codesigning 2>/dev/null | grep 'Developer ID Application' | head -1)"
+    SIGN_IDENTITY="$(printf '%s' "$IDENTITY_LINE" | awk '{print $2}')"
+    if [ -z "${TEAM_ID:-}" ]; then
+        TEAM_ID="$(printf '%s' "$IDENTITY_LINE" | sed -nE 's/.*\(([A-Z0-9]{10})\)"?[^()]*$/\1/p')"
+    fi
 fi
 
 if [ -z "${SIGN_IDENTITY:-}" ]; then
