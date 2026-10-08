@@ -3,29 +3,36 @@ import AppKit
 import Observation
 import ProcLensCore
 
-/// Template bitmap of recent CPU history as bars (+ optional percentage), assigned straight to the status item
-/// button (no SwiftUI label involved). Rendered into a bitmap, not a drawing-handler image, so AppKit does not
-/// re-run drawing code for every status-item replicant refresh.
+/// Compact menu bar item: "23%" in the menu bar font, then a short CPU history graph.
+/// Each bar has a faint full-height track so the graph stays readable at low load.
+/// Rendered into a bitmap and assigned straight to the status item button (no SwiftUI label),
+/// so AppKit does not re-run drawing code for every status-item replicant refresh.
 @MainActor
 enum MenuBarGraph {
-    static let barCount = 24
-    private static let barW: CGFloat = 2, gap: CGFloat = 1, h: CGFloat = 16
+    static let barCount = 7
+    private static let barW: CGFloat = 4, gap: CGFloat = 1, h: CGFloat = 16, textGap: CGFloat = 5
     private static let scale: CGFloat = 2
-    private static let font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular)
+    private static let font = NSFont.monospacedDigitSystemFont(ofSize: 12, weight: .medium)
     private static let attrs: [NSAttributedString.Key: Any] = [.font: font]
-    static let graphWidth = CGFloat(barCount) * (barW + gap)
+    static let graphWidth = CGFloat(barCount) * (barW + gap) - gap
     /// Room for the widest value ("100%"), so the item keeps one length and is never re-laid out per tick.
-    static let textWidth: CGFloat = ceil(("100%" as NSString).size(withAttributes: attrs).width) + 4
+    static let textWidth: CGFloat = ceil(("100%" as NSString).size(withAttributes: attrs).width)
 
-    static func width(showsPercent: Bool) -> CGFloat { graphWidth + (showsPercent ? textWidth : 0) }
-
-    /// Quantized bar heights (pixels of a 16 pt graph); equal heights + text => identical image.
-    static func heights(_ cpu: [Double]) -> [Int] {
-        cpu.suffix(barCount).map { max(1, Int((min(1, max(0, $0)) * h).rounded())) }
+    static func width(showsPercent: Bool, showsGraph: Bool) -> CGFloat {
+        switch (showsPercent, showsGraph) {
+        case (true, true): textWidth + textGap + graphWidth
+        case (true, false): textWidth
+        default: graphWidth
+        }
     }
 
-    static func image(heights: [Int], text: String?, color: NSColor) -> NSImage {
-        let size = NSSize(width: width(showsPercent: text != nil), height: h)
+    /// Quantized bar heights in half points of a 16 pt graph; equal heights + text => identical image.
+    static func heights(_ cpu: [Double]) -> [Int] {
+        cpu.suffix(barCount).map { Int((min(1, max(0, $0)) * h * 2).rounded()) }
+    }
+
+    static func image(heights: [Int], text: String?, showsGraph: Bool, color: NSColor) -> NSImage {
+        let size = NSSize(width: width(showsPercent: text != nil, showsGraph: showsGraph), height: h)
         guard let rep = NSBitmapImageRep(
             bitmapDataPlanes: nil, pixelsWide: Int(size.width * scale), pixelsHigh: Int(size.height * scale),
             bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
@@ -36,15 +43,25 @@ enum MenuBarGraph {
         rep.size = size
         NSGraphicsContext.saveGraphicsState()
         NSGraphicsContext.current = ctx
-        color.setFill()
-        let pad = barCount - heights.count
-        for (i, bh) in heights.enumerated() {
-            NSRect(x: CGFloat(pad + i) * (barW + gap), y: 0, width: barW, height: CGFloat(bh)).fill()
-        }
+        var x: CGFloat = 0
         if let text {
             let s = (text as NSString).size(withAttributes: attrs)
-            (text as NSString).draw(at: NSPoint(x: graphWidth + textWidth - s.width, y: (h - s.height) / 2),
+            (text as NSString).draw(at: NSPoint(x: textWidth - s.width, y: (h - s.height) / 2),
                                     withAttributes: [.font: font, .foregroundColor: color])
+            x = textWidth + textGap
+        }
+        if showsGraph {
+            let pad = barCount - heights.count
+            for i in 0..<barCount {
+                let bx = x + CGFloat(i) * (barW + gap)
+                color.withAlphaComponent(0.3).setFill()
+                NSBezierPath(roundedRect: NSRect(x: bx, y: 1, width: barW, height: h - 2), xRadius: 1, yRadius: 1).fill()
+                guard i >= pad else { continue }
+                // Min 1.5 pt so an idle machine still shows a baseline.
+                let bh = max(2, min(h - 2, CGFloat(heights[i - pad]) / 2))
+                color.setFill()
+                NSBezierPath(roundedRect: NSRect(x: bx, y: 1, width: barW, height: bh), xRadius: 1, yRadius: 1).fill()
+            }
         }
         NSGraphicsContext.restoreGraphicsState()
         let image = NSImage(size: size)
@@ -65,6 +82,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     private static let minRedrawGap: CFTimeInterval = 1.5
     private let popover = NSPopover()
     private var showsPercent = UserDefaults.standard.object(forKey: "menuBarShowsPercent") as? Bool ?? true
+    private var showsGraph = UserDefaults.standard.object(forKey: "menuBarShowsGraph") as? Bool ?? true
     private var defaultsObserver: NSObjectProtocol?
     private var appearanceObserver: NSKeyValueObservation?
 
@@ -91,8 +109,12 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         ) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self else { return }
-                let v = UserDefaults.standard.object(forKey: "menuBarShowsPercent") as? Bool ?? true
-                if v != self.showsPercent { self.showsPercent = v; self.applyWidth(); self.refresh() }
+                let p = UserDefaults.standard.object(forKey: "menuBarShowsPercent") as? Bool ?? true
+                var g = UserDefaults.standard.object(forKey: "menuBarShowsGraph") as? Bool ?? true
+                if !p && !g { g = true }  // never an empty item
+                if p != self.showsPercent || g != self.showsGraph {
+                    self.showsPercent = p; self.showsGraph = g; self.applyWidth(); self.refresh()
+                }
             }
         }
         refresh()
@@ -100,7 +122,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     }
 
     private func applyWidth() {
-        item.length = MenuBarGraph.width(showsPercent: showsPercent) + 8
+        item.length = MenuBarGraph.width(showsPercent: showsPercent, showsGraph: showsGraph) + 8
         lastKey = nil
     }
 
@@ -119,7 +141,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         (item.button?.effectiveAppearance ?? NSApp.effectiveAppearance).performAsCurrentDrawingAppearance {
             color = NSColor.labelColor.usingColorSpace(.deviceRGB) ?? .black
         }
-        item.button?.image = MenuBarGraph.image(heights: heights, text: text, color: color)
+        item.button?.image = MenuBarGraph.image(heights: heights, text: text, showsGraph: showsGraph, color: color)
         item.button?.setAccessibilityValue(Format.percent(values.last ?? 0))
     }
 

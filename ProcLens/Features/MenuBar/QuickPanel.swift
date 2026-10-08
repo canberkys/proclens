@@ -85,18 +85,25 @@ private struct QuickPanel: View {
         let up = hist.map { $0.network?.sentPerSec ?? 0 }
         let netMax = Sparkline.niceMax(max(down.max() ?? 0, up.max() ?? 0))
         let pressure: Color = switch latest?.memory?.pressure { case .warning: .yellow; case .critical: .red; default: .green }
-        return VStack(spacing: 6) {
-            GaugeRow(title: "CPU", value: latest?.cpu.map { Format.percent($0.total) } ?? "–") {
-                Sparkline(series: [.init(values: cpu, color: .accentColor)], maxValue: 1, capacity: cap)
+        // 2×2 tiles instead of four full-width rows: half the height, larger values.
+        return Grid(horizontalSpacing: 8, verticalSpacing: 8) {
+            GridRow {
+                GaugeTile(title: "CPU", value: latest?.cpu.map { Format.percent($0.total) } ?? "–") {
+                    Sparkline(series: [.init(values: cpu, color: .accentColor)], maxValue: 1, capacity: cap)
+                }
+                GaugeTile(title: "Memory", value: latest?.memory.map { Format.percent(Double($0.used) / Double(max(1, $0.total))) } ?? "–", dot: pressure) {
+                    Sparkline(series: [.init(values: mem, color: .purple)], maxValue: 1, capacity: cap)
+                }
             }
-            GaugeRow(title: "Memory", value: latest?.memory.map { Format.percent(Double($0.used) / Double(max(1, $0.total))) } ?? "–", dot: pressure) {
-                Sparkline(series: [.init(values: mem, color: .purple)], maxValue: 1, capacity: cap)
-            }
-            GaugeRow(title: "GPU", value: latest?.gpu.map { Format.percent($0.utilization) } ?? "–") {
-                Sparkline(series: [.init(values: gpu, color: .orange)], maxValue: 1, capacity: cap)
-            }
-            GaugeRow(title: "Network", value: "↓ \(Format.rate(latest?.network?.receivedPerSec ?? 0))\n↑ \(Format.rate(latest?.network?.sentPerSec ?? 0))", small: true) {
-                Sparkline(series: [.init(values: down, color: .green), .init(values: up, color: .blue)], maxValue: netMax, capacity: cap)
+            GridRow {
+                GaugeTile(title: "GPU", value: latest?.gpu.map { Format.percent($0.utilization) } ?? "–") {
+                    Sparkline(series: [.init(values: gpu, color: .orange)], maxValue: 1, capacity: cap)
+                }
+                GaugeTile(title: "Network",
+                          value: "↓\(Format.rate(latest?.network?.receivedPerSec ?? 0))  ↑\(Format.rate(latest?.network?.sentPerSec ?? 0))",
+                          small: true) {
+                    Sparkline(series: [.init(values: down, color: .green), .init(values: up, color: .blue)], maxValue: netMax, capacity: cap)
+                }
             }
         }
     }
@@ -142,7 +149,7 @@ private struct QuickPanel: View {
     }
 }
 
-private struct GaugeRow<Chart: View>: View {
+private struct GaugeTile<Chart: View>: View {
     let title: String
     let value: String
     var dot: Color?
@@ -150,20 +157,21 @@ private struct GaugeRow<Chart: View>: View {
     @ViewBuilder let chart: Chart
 
     var body: some View {
-        HStack(spacing: 8) {
-            VStack(alignment: .leading, spacing: 1) {
-                HStack(spacing: 4) {
-                    Text(title).font(.caption).foregroundStyle(.secondary)
-                    if let dot { Circle().fill(dot).frame(width: 6, height: 6) }
-                }
+        VStack(alignment: .leading, spacing: 4) {
+            HStack(alignment: .firstTextBaseline, spacing: 4) {
+                Text(title).font(.caption).foregroundStyle(.secondary)
+                if let dot { Circle().fill(dot).frame(width: 6, height: 6) }
+                Spacer(minLength: 2)
                 Text(value)
-                    .font(small ? .caption2.monospacedDigit() : .title3.monospacedDigit().weight(.medium))
-                    .lineLimit(small ? 2 : 1)
+                    .font(small ? .caption.monospacedDigit() : .headline.monospacedDigit())
+                    .lineLimit(1).minimumScaleFactor(0.8)
             }
-            .frame(width: 92, alignment: .leading)
-            chart.frame(height: 30)
-                .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 4))
+            chart.frame(height: 24)
         }
+        .padding(8)
+        .frame(maxWidth: .infinity)
+        .background(.quaternary.opacity(0.35), in: RoundedRectangle(cornerRadius: 8))
+        .accessibilityElement(children: .combine)
     }
 }
 
