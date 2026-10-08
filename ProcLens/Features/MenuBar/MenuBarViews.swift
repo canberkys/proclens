@@ -121,7 +121,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             button.target = self
             button.action = #selector(toggle(_:))
             button.setAccessibilityLabel("ProcLens CPU")
-            button.imagePosition = .imageOnly
+            button.imageScaling = .scaleNone  // never shrink to fit; the item sizes to its content
             // The bitmap is pre-tinted (cheaper to draw than a template), so redraw when light/dark changes.
             appearanceObserver = button.observe(\.effectiveAppearance) { [weak self] _, _ in
                 MainActor.assumeIsolated { self?.lastKey = nil; self?.lastDraw = 0; self?.refresh() }
@@ -141,9 +141,32 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         track()
     }
 
+    /// Text styles use the button's own title + a template SF Symbol (native look, exact content width,
+    /// automatic light/dark/highlight). Only the graph style draws a bitmap.
+    private static let titleFont = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
+    private static let cpuSymbol: NSImage? = {
+        let image = NSImage(systemSymbolName: "cpu", accessibilityDescription: "CPU")?
+            .withSymbolConfiguration(.init(pointSize: NSFont.systemFontSize, weight: .regular))
+        image?.isTemplate = true
+        return image
+    }()
+
     private func applyWidth() {
-        item.length = MenuBarGraph.width(style) + 8
+        item.length = NSStatusItem.variableLength
+        guard let button = item.button else { return }
+        switch style {
+        case .icon: button.image = Self.cpuSymbol; button.imagePosition = .imageLeading
+        case .percent: button.image = nil; button.imagePosition = .noImage
+        case .graph: button.title = ""; button.imagePosition = .imageOnly
+        }
         lastKey = nil
+    }
+
+    /// "  7%" / " 42%" / "100%" with figure spaces, so the width stays constant as the value changes.
+    private static func paddedPercent(_ fraction: Double) -> String {
+        let v = Int((min(1, max(0, fraction)) * 100).rounded())
+        let digits = String(v)
+        return String(repeating: "\u{2007}", count: max(0, 3 - digits.count)) + digits + "%"
     }
 
     private func refresh() {
@@ -157,11 +180,16 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         if let k = lastKey, k.0 == heights, k.1 == text { return }
         lastKey = (heights, text)
         lastDraw = now
-        var color = NSColor.black
-        (item.button?.effectiveAppearance ?? NSApp.effectiveAppearance).performAsCurrentDrawingAppearance {
-            color = NSColor.labelColor.usingColorSpace(.deviceRGB) ?? .black
+        if style == .graph {
+            var color = NSColor.black
+            (item.button?.effectiveAppearance ?? NSApp.effectiveAppearance).performAsCurrentDrawingAppearance {
+                color = NSColor.labelColor.usingColorSpace(.deviceRGB) ?? .black
+            }
+            item.button?.image = MenuBarGraph.image(style: .graph, heights: heights, text: text, color: color)
+        } else {
+            item.button?.attributedTitle = NSAttributedString(
+                string: Self.paddedPercent(values.last ?? 0), attributes: [.font: Self.titleFont])
         }
-        item.button?.image = MenuBarGraph.image(style: style, heights: style == .graph ? heights : [], text: text, color: color)
         item.button?.setAccessibilityValue(Format.percent(values.last ?? 0))
     }
 
