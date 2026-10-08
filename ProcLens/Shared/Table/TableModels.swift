@@ -98,6 +98,10 @@ final class TableFeed {
     private(set) var reveal: [NodeID] = []
     private(set) var focus: ProcessID?
 
+    /// Bumped when the whole row structure changes (e.g. flat <-> tree): the table then does one bulk reload.
+    private(set) var reloadToken = 0
+    func requestReload() { reloadToken &+= 1 }
+
     func newSearch(reveal: [NodeID], focus: ProcessID?) {
         searchToken &+= 1
         self.reveal = reveal

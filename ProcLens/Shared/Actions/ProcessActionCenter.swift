@@ -14,15 +14,28 @@ final class ProcessActionCenter {
         let refused: [(name: String, reason: String)]
     }
 
+    /// "End process tree" waiting for confirmation (root + descendants, children first).
+    struct PendingTree: Identifiable {
+        let id = UUID()
+        let root: ProcessSample
+        let table: ProcessTable
+        let descendantCount: Int
+    }
+
     /// Set when an action waits for confirmation.
     var pending: Pending?
+    var pendingTree: PendingTree?
     /// Shown as an alert after a refused or failed action.
     var message: String?
 
     @ObservationIgnored private let model: AppModel
+    @ObservationIgnored private let treeKiller = TreeKiller()
 
     init(model: AppModel) {
         self.model = model
+        #if DEBUG
+        DispatchQueue.main.async { [self] in DetailsDebug.scheduleIfRequested(model: model, actions: self) }
+        #endif
     }
 
     /// Entry point for every UI surface. Destructive actions are confirmed first.
@@ -45,6 +58,10 @@ final class ProcessActionCenter {
             if !urls.isEmpty { NSWorkspace.shared.activateFileViewerSelecting(urls) }
         case .resume:
             execute(.resume, on: targets)
+        case .properties:
+            for p in targets.prefix(8) { InspectorWindows.shared.show(p, model: model, actions: self) }
+        case .endTree:
+            if let first = targets.first { requestEndTree(first.id) }
         case .quit, .forceQuit, .suspend:
             var allowed: [ProcessSample] = []
             var refused: [(String, String)] = []
@@ -71,6 +88,42 @@ final class ProcessActionCenter {
             return
         }
         request(force ? .forceQuit : .quit, on: [p.id])
+    }
+
+    /// Ends `id` and all its descendants (children first). Protected roots are refused here; protected
+    /// descendants are skipped by `TreeKiller`. Always confirmed first.
+    func requestEndTree(_ id: ProcessID) {
+        guard let table = model.latest?.processes ?? model.services.lastProcessTable,
+              let root = table.processes[id] else {
+            message = "The process is no longer running."
+            return
+        }
+        if case .refused(let reason) = model.protection.verdict(for: root) {
+            message = reason
+            return
+        }
+        let count = ProcessTree(table: table).descendants(of: id).count
+        pendingTree = PendingTree(root: root, table: table, descendantCount: count)
+    }
+
+    func confirmTree() {
+        guard let tree = pendingTree else { return }
+        pendingTree = nil
+        Task { [treeKiller] in
+            let results = await treeKiller.kill(root: tree.root.id, in: tree.table)
+            let failures = results.compactMap { r -> String? in
+                switch r.outcome {
+                case .refused(let reason): return r.id == tree.root.id ? "\(r.name): \(reason)" : nil
+                case .failed(let e): return "\(r.name) (\(r.id.pid)): \(String(cString: strerror(e)))"
+                default: return nil
+                }
+            }
+            if !failures.isEmpty { message = failures.joined(separator: "\n") }
+        }
+    }
+
+    func cancelTree() {
+        pendingTree = nil
     }
 
     func confirm() {
@@ -109,7 +162,7 @@ final class ProcessActionCenter {
             return signal(SIGSTOP, p.pid)
         case .resume:
             return signal(SIGCONT, p.pid)
-        case .revealInFinder, .copyPath, .copyPID:
+        case .revealInFinder, .copyPath, .copyPID, .properties, .endTree:
             return nil
         }
     }
@@ -166,6 +219,16 @@ private struct ProcessActionConfirmation: ViewModifier {
             } message: { pending in
                 let skipped = pending.refused.map { "Skipped \($0.name): \($0.reason)" }
                 Text(([pending.action.confirmationDetail] + skipped).joined(separator: "\n\n"))
+            }
+            .alert(
+                center.pendingTree.map { "End process tree of “\($0.root.name)” (PID \($0.root.pid))?" } ?? "",
+                isPresented: Binding(get: { center.pendingTree != nil }, set: { if !$0 { center.cancelTree() } }),
+                presenting: center.pendingTree
+            ) { _ in
+                Button("End process tree", role: .destructive) { center.confirmTree() }
+                Button("Cancel", role: .cancel) { center.cancelTree() }
+            } message: { tree in
+                Text("\(tree.descendantCount) child process\(tree.descendantCount == 1 ? "" : "es") will be ended first, then “\(tree.root.name)”. Processes get SIGTERM, survivors SIGKILL after 3 seconds. Unsaved data will be lost.")
             }
             .alert(
                 "ProcLens",

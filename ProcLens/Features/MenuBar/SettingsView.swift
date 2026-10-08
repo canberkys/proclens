@@ -26,6 +26,7 @@ struct SettingsView: View {
             Toggle("Show Dock icon", isOn: $showDock)
                 .onChange(of: showDock) { _, _ in AppPresentation.applyStoredActivationPolicy() }
             LabeledContent("Open ProcLens shortcut") { HotKeyRecorder() }
+            HelperSection()
         }
         .formStyle(.grouped)
         .frame(width: 400)

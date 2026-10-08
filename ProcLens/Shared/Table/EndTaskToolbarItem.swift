@@ -18,5 +18,16 @@ struct EndTaskToolbarItem: ToolbarContent {
             .accessibilityLabel("End task")
             .accessibilityHint("Asks the selected processes to quit, after confirmation")
         }
+        ToolbarItem(placement: .primaryAction) {
+            Button {
+                actions.request(.properties, on: selection)
+            } label: {
+                Label("Properties", systemImage: "info.circle")
+            }
+            .keyboardShortcut("i", modifiers: .command)
+            .disabled(selection.isEmpty)
+            .help("Open the inspector for the selected process (⌘I)")
+            .accessibilityLabel("Properties")
+        }
     }
 }

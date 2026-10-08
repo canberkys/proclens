@@ -24,6 +24,7 @@ private struct QuickPanel: View {
     @State private var query = ""
     @State private var metric = Metric.cpu
     @FocusState private var searchFocused: Bool
+    @State private var ports = PortsStore()
 
     var body: some View {
         let snap = model.latest
@@ -60,9 +61,12 @@ private struct QuickPanel: View {
                 Spacer(minLength: 0)
             }
             .frame(height: CGFloat(searching ? 8 : 5) * 28)
+            DevServersSection(rows: ports.rows.filter(\.isPanelDevServer), actions: actions)
             Divider()
             footer
         }
+        .onAppear { ports.start(model: model) }
+        .onDisappear { ports.stop() }
         .padding(12)
         .frame(width: 340)
         .task { try? await Task.sleep(for: .milliseconds(120)); searchFocused = true }
@@ -218,5 +222,45 @@ enum BundleIcon {
         if cache.count > 200 { cache.removeAll() }
         cache[bundle] = image
         return image
+    }
+}
+
+/// Up to five listening dev servers (web/runtime by rule). Hidden when there are none.
+private struct DevServersSection: View {
+    let rows: [PortRow]
+    let actions: ProcessActionCenter
+
+    var body: some View {
+        if !rows.isEmpty {
+            VStack(alignment: .leading, spacing: 2) {
+                Divider().padding(.bottom, 4)
+                Text("Dev servers").font(.caption).foregroundStyle(.secondary).padding(.horizontal, 6)
+                ForEach(rows.prefix(5)) { r in DevServerRow(r: r, actions: actions) }
+            }
+        }
+    }
+}
+
+private struct DevServerRow: View {
+    let r: PortRow
+    let actions: ProcessActionCenter
+    @State private var hovering = false
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Circle().fill(r.match.category.color).frame(width: 7, height: 7)
+            Text(verbatim: "\(r.match.framework) :\(String(r.port)) — \(r.processName)").lineLimit(1).truncationMode(.middle)
+            Spacer(minLength: 4)
+            if let url = r.url {
+                Button { NSWorkspace.shared.open(url) } label: { Image(systemName: "globe") }
+                    .buttonStyle(.plain).foregroundStyle(.secondary).help("Open \(url.absoluteString)")
+            }
+            Button { actions.requestEndTree(r.listener.processID) } label: { Image(systemName: "stop.circle") }
+                .buttonStyle(.plain).foregroundStyle(.secondary).help("Stop (end process tree)")
+        }
+        .font(.callout)
+        .padding(.horizontal, 6).frame(height: 26)
+        .background(hovering ? AnyShapeStyle(.quaternary) : AnyShapeStyle(.clear), in: RoundedRectangle(cornerRadius: 6))
+        .onHover { hovering = $0 }
     }
 }

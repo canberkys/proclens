@@ -12,18 +12,29 @@ struct DetailsView: View {
             autosaveName: "ProcLens.detailsTable",
             columns: DetailsViewModel.columns,
             feed: vm.feed,
-            sort: vm.sort,
-            onSortChange: { newSort in
-                guard newSort != vm.sort else { return }
-                vm.sort = newSort
-                vm.rebuild(model: model)
-            },
+            sort: vm.activeSort,
+            onSortChange: { vm.setSort($0) },
             onVisibleIDsChange: { ids in Task { @MainActor in vm.setVisible(ids) } },
             onSelectionChange: { ids in Task { @MainActor in vm.setSelected(ids); selection = ids } },
-            handler: CenterActionHandler(actions)
+            handler: CenterActionHandler(actions, opensInspector: true),
+            outlineColumnID: vm.treeMode ? "name" : nil,
+            expandByDefault: vm.treeMode,
+            doubleClickOpens: true
         )
         .searchable(text: $vm.searchText, placement: .toolbar, prompt: "Search name, PID or path")
-        .toolbar { EndTaskToolbarItem(selection: selection) }
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Toggle(isOn: $vm.treeMode) {
+                    Label("Tree", systemImage: "list.bullet.indent")
+                }
+                .toggleStyle(.button)
+                .help(vm.treeMode
+                      ? "Show a flat list"
+                      : "Show processes as a parent/child tree (rows keep their place; sort a column to reorder)")
+                .accessibilityLabel("Process tree")
+            }
+            EndTaskToolbarItem(selection: selection)
+        }
         .navigationTitle("Details")
         .background {
             TickDriver(model: model) { vm.rebuild(model: model) }

@@ -11,6 +11,11 @@ Architecture decisions and code reuse log. Newest first.
 
 ---
 
+### 2026-10-08 — Details tree view, inspector windows, tree kill in menus
+- **Decision:** Tree is a toggle in the Details toolbar (outline column = Name, nodes expanded by default, the user's collapses are remembered by `NodeID`). Natural tree order is start time within siblings (shown as the Start time sort); sorting another column is the only thing that reorders. Search keeps ancestors of matches. Flat/tree switch does one bulk reload via `TableFeed.requestReload()`. Context menus gained "End process tree" (single selection, `ProcessActionCenter.requestEndTree`) and "Properties…" (⌘I, double-click in Details). The inspector is one `NSWindow` per process (`InspectorWindows`), data read once on open and on Refresh; only the header CPU/memory follows the visible snapshot.
+- **Why:** Windows Task Manager / Process Explorer feel without per-tick row jumps; no per-tick inspector work.
+- **Alternatives considered:** tree in Processes tab (it already groups by app); sheet instead of windows (only one at a time).
+
 ### 2026-10-08 — Size and overhead targets revised after Phase 2/3
 - **Decision:**
   - **Bundle size:** the universal app bundle target is now ≤ 6 MB including the helper. It is 4.9 MB measured without the helper: 3.5 MB binary + 1.2 MB asset catalog. The earlier < 3 MB target predates Phase 2/3.

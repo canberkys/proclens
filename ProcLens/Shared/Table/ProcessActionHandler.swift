@@ -3,14 +3,16 @@ import ProcLensCore
 
 /// Actions a process table can request. Execution and confirmation live in `ProcessActionCenter`.
 enum ProcessAction: String, CaseIterable, Sendable {
-    case quit, forceQuit, suspend, resume, revealInFinder, copyPath, copyPID
+    case quit, forceQuit, endTree, suspend, resume, properties, revealInFinder, copyPath, copyPID
 
     var title: String {
         switch self {
         case .quit: "End task"
         case .forceQuit: "Force quit"
+        case .endTree: "End process tree"
         case .suspend: "Suspend"
         case .resume: "Resume"
+        case .properties: "Properties…"
         case .revealInFinder: "Reveal in Finder"
         case .copyPath: "Copy path"
         case .copyPID: "Copy PID"
@@ -19,7 +21,7 @@ enum ProcessAction: String, CaseIterable, Sendable {
 
     /// Context-menu layout, Windows order; `nil` is a separator.
     static let menuLayout: [ProcessAction?] = [
-        .quit, .forceQuit, nil, .suspend, .resume, nil, .revealInFinder, .copyPID, .copyPath,
+        .quit, .forceQuit, .endTree, nil, .suspend, .resume, nil, .properties, nil, .revealInFinder, .copyPID, .copyPath,
     ]
 }
 
@@ -38,9 +40,14 @@ protocol ProcessActionHandler: AnyObject {
 @MainActor
 final class CenterActionHandler: ProcessActionHandler {
     private let center: ProcessActionCenter
-    init(_ center: ProcessActionCenter) { self.center = center }
+    private let opensInspector: Bool
+    /// `opensInspector`: double-click / Return on a process row opens its inspector (Details).
+    init(_ center: ProcessActionCenter, opensInspector: Bool = false) {
+        self.center = center
+        self.opensInspector = opensInspector
+    }
 
     func perform(_ action: ProcessAction, on ids: [ProcessID]) { center.request(action, on: ids) }
-    func open(_ ids: [ProcessID]) {}
+    func open(_ ids: [ProcessID]) { if opensInspector { center.request(.properties, on: ids) } }
     func deletePressed(on ids: [ProcessID]) { center.request(.quit, on: ids) }
 }

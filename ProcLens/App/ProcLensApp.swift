@@ -16,7 +16,10 @@ struct ProcLensApp: App {
         // Sampling and the menu bar graph must not depend on the window existing (it can be closed or not yet on screen).
         model.start()
         #if DEBUG
-        DispatchQueue.main.async { PanelSnapshot.scheduleIfRequested() }  // needs no window
+        DispatchQueue.main.async {  // neither needs the main window (it may never appear on a locked screen)
+            PanelSnapshot.scheduleIfRequested()
+            DebugSnapshot.scheduleIfRequested(model: model, actions: actions)
+        }
         #endif
     }
 
@@ -27,11 +30,6 @@ struct ProcLensApp: App {
                 .environment(actions)
                 .processActionConfirmation(actions)
                 .globalHotKey()
-                .task {
-                    #if DEBUG
-                    DebugSnapshot.scheduleIfRequested()
-                    #endif
-                }
                 .frame(minWidth: 900, minHeight: 600)
         }
         .commands { ProcLensCommands() }

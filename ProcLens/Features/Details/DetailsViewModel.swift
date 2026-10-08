@@ -41,6 +41,32 @@ final class DetailsViewModel {
         didSet { UserDefaults.standard.set([sort.key, sort.ascending ? "1" : "0"], forKey: Self.sortKey) }
     }
 
+    // MARK: Tree mode (SPEC 6.1)
+
+    private static let treeKey = "ProcLens.details.tree"
+    private static let treeSortKey = "ProcLens.details.treeSort"
+    /// Indented parent/child outline. Default order is start time within siblings ("tree lock"): rows only move
+    /// when the user explicitly sorts a column, never because CPU or memory changed.
+    var treeMode: Bool {
+        didSet {
+            guard treeMode != oldValue else { return }
+            UserDefaults.standard.set(treeMode, forKey: Self.treeKey)
+            lastQuery = "\u{0}"
+            feed.requestReload()
+            if let model { rebuild(model: model) }
+        }
+    }
+    /// Natural tree order is start time, oldest first; the header shows it as the active sort.
+    var treeSort: TableSort {
+        didSet { UserDefaults.standard.set([treeSort.key, treeSort.ascending ? "1" : "0"], forKey: Self.treeSortKey) }
+    }
+    var activeSort: TableSort { treeMode ? treeSort : sort }
+    func setSort(_ new: TableSort) {
+        guard new != activeSort else { return }
+        if treeMode { treeSort = new } else { sort = new }
+        if let model { rebuild(model: model) }
+    }
+
     /// Values that never change for a process lifetime (or change rarely), formatted once, plus the row cache.
     private final class Static {
         var ppid: pid_t
@@ -108,6 +134,17 @@ final class DetailsViewModel {
         } else {
             sort = TableSort(key: "pid", ascending: true)
         }
+        if let s = UserDefaults.standard.array(forKey: Self.treeSortKey) as? [String], s.count == 2,
+           Self.columns.contains(where: { $0.id == s[0] }) {
+            treeSort = TableSort(key: s[0], ascending: s[1] == "1")
+        } else {
+            treeSort = TableSort(key: "start", ascending: true)
+        }
+        treeMode = UserDefaults.standard.bool(forKey: Self.treeKey)
+        #if DEBUG
+        if UserDefaults.standard.bool(forKey: "ProcLensDetailsTree") { treeMode = true }
+        searchText = UserDefaults.standard.string(forKey: "ProcLensDetailsSearch") ?? ""
+        #endif
     }
 
     // MARK: - Lazy fetch
@@ -164,6 +201,10 @@ final class DetailsViewModel {
         samples = table.processes
         let coreCount = Double(max(1, snapshot.cpu?.cores.count ?? 1))
         let query = searchText.trimmingCharacters(in: .whitespaces).lowercased()
+        if treeMode {
+            rebuildTree(table: table, coreCount: coreCount, query: query)
+            return
+        }
 
         var list: [ProcessSample] = []
         list.reserveCapacity(table.processes.count)
@@ -175,14 +216,75 @@ final class DetailsViewModel {
             }
             list.append(p)
         }
-        let key = sort.key
-        let asc = sort.ascending
         let infos = list.map { staticInfo(for: $0) }
-        var order = Array(list.indices)
+        var order = sortedOrder(list: list, infos: infos, key: sort.key, ascending: sort.ascending)
         // Exact numeric PID match: always first and selected on a new search.
         let exactPID = Int32(query)
         var exactIdx: Int?
         if let exactPID { exactIdx = list.firstIndex { $0.pid == exactPID } }
+
+        if let exactIdx, let pos = order.firstIndex(of: exactIdx) {
+            order.remove(at: pos)
+            order.insert(exactIdx, at: 0)
+        }
+        if query != lastQuery {
+            lastQuery = query
+            feed.newSearch(reveal: [], focus: exactIdx.map { list[$0].id })
+        }
+
+        var out: [TableRowData] = []
+        out.reserveCapacity(list.count)
+        for i in order { out.append(makeRow(list[i], infos[i], coreCount: coreCount)) }
+        feed.push(out)
+
+        if statics.count > table.processes.count * 2 + 64 {
+            statics = statics.filter { table.processes[$0.key] != nil }
+            cmdlines = cmdlines.filter { table.processes[$0.key] != nil }
+        }
+        fetchMissing()
+    }
+
+    private func makeRow(_ p: ProcessSample, _ s: Static, coreCount: Double) -> TableRowData {
+        let cpuTenths = Int32((p.cpu / coreCount * 1000).rounded())
+        let memQ = p.memory < 1_048_576 ? p.memory : (p.memory >> 15) << 15
+        let cmd = p.isRestricted ? nil : cmdlines[p.id]
+        let sign = p.isRestricted ? nil : p.path.flatMap { signing[$0] }
+        let sig = Sig(cpuTenths: cpuTenths, memory: memQ, threads: p.threadCount, restricted: p.isRestricted,
+                      ppid: p.ppid, cmd: cmd, sign: sign)
+        if let row = s.row, s.sig == sig {
+            return row
+        }
+        var cells = [String](repeating: "", count: Self.columns.count)
+        cells[Col.pid] = s.pidText
+        cells[Col.name] = p.name
+        cells[Col.ppid] = s.ppidText
+        cells[Col.user] = s.user
+        cells[Col.start] = s.start
+        cells[Col.path] = s.path
+        var row: TableRowData
+        if p.isRestricted {
+            for c in Self.unreadable { cells[c] = Self.dash }
+            row = TableRowData(id: .process(p.id), cells: cells)
+            row.tooltips = p.path == nil ? Self.restrictedTooltips : Self.cmdTooltips
+        } else {
+            cells[Col.arch] = s.arch
+            cells[Col.threads] = String(p.threadCount)
+            cells[Col.cpu] = FastFormat.percent(Double(cpuTenths) / 1000)
+            cells[Col.memory] = FastFormat.bytes(memQ)
+            cells[Col.cmdline] = cmd ?? ""
+            cells[Col.sign] = sign ?? ""
+            row = TableRowData(id: .process(p.id), cells: cells)
+        }
+        nextRev &+= 1
+        row.rev = nextRev
+        s.sig = sig
+        s.row = row
+        return row
+    }
+
+    /// Indexes of `list` in the requested sort order (ties by pid).
+    private func sortedOrder(list: [ProcessSample], infos: [Static], key: String, ascending asc: Bool) -> [Int] {
+        var order = Array(list.indices)
         switch key {
         case "pid", "ppid", "arch", "threads", "cpu", "memory", "start":
             let vals: [Double] = list.map { p in
@@ -220,59 +322,60 @@ final class DetailsViewModel {
                 return list[i].pid < list[j].pid
             }
         }
+        return order
+    }
 
-        if let exactIdx, let pos = order.firstIndex(of: exactIdx) {
-            order.remove(at: pos)
-            order.insert(exactIdx, at: 0)
+    // MARK: - Tree
+
+    private func rebuildTree(table: ProcessTable, coreCount: Double, query: String) {
+        let tree = ProcessTree(table: table)
+        let key = treeSort.key
+        let asc = treeSort.ascending
+        let natural = key == "start" && asc
+
+        // Search keeps the ancestors of every match so the matches stay in context.
+        var shown: Set<ProcessID>?
+        var focus: ProcessID?
+        var reveal: [NodeID] = []
+        if !query.isEmpty {
+            var vis = Set<ProcessID>()
+            let exactPID = Int32(query)
+            for p in table.processes.values {
+                let hit = p.name.lowercased().contains(query) || String(p.pid).contains(query)
+                    || (p.path?.lowercased().contains(query) ?? false)
+                guard hit else { continue }
+                if p.pid == exactPID { focus = p.id }
+                var cur: ProcessID? = p.id
+                while let c = cur, vis.insert(c).inserted { cur = tree.parent(of: c) }
+            }
+            shown = vis
+            reveal = vis.map { .process($0) }
         }
+
+        var rank: [ProcessID: Int] = [:]
+        if !natural {
+            let all = Array(table.processes.values)
+            let order = sortedOrder(list: all, infos: all.map { staticInfo(for: $0) }, key: key, ascending: asc)
+            rank.reserveCapacity(all.count)
+            for (r, i) in order.enumerated() { rank[all[i].id] = r }
+        }
+        func arranged(_ ids: [ProcessID]) -> [ProcessID] {
+            var out = shown.map { set in ids.filter { set.contains($0) } } ?? ids
+            if !natural { out.sort { (rank[$0] ?? 0) < (rank[$1] ?? 0) } }
+            return out
+        }
+        func node(_ id: ProcessID) -> TableRowData? {
+            guard let p = table.processes[id] else { return nil }
+            var row = makeRow(p, staticInfo(for: p), coreCount: coreCount)
+            row.children = arranged(tree.children(of: id)).compactMap(node)
+            return row
+        }
+
         if query != lastQuery {
             lastQuery = query
-            feed.newSearch(reveal: [], focus: exactIdx.map { list[$0].id })
+            feed.newSearch(reveal: reveal, focus: focus)
         }
-
-        var out: [TableRowData] = []
-        out.reserveCapacity(list.count)
-        for i in order {
-            let p = list[i]
-            let s = infos[i]
-            let cpuTenths = Int32((p.cpu / coreCount * 1000).rounded())
-            let memQ = p.memory < 1_048_576 ? p.memory : (p.memory >> 15) << 15
-            let cmd = p.isRestricted ? nil : cmdlines[p.id]
-            let sign = p.isRestricted ? nil : p.path.flatMap { signing[$0] }
-            let sig = Sig(cpuTenths: cpuTenths, memory: memQ, threads: p.threadCount, restricted: p.isRestricted,
-                          ppid: p.ppid, cmd: cmd, sign: sign)
-            if let row = s.row, s.sig == sig {
-                out.append(row)
-                continue
-            }
-            var cells = [String](repeating: "", count: Self.columns.count)
-            cells[Col.pid] = s.pidText
-            cells[Col.name] = p.name
-            cells[Col.ppid] = s.ppidText
-            cells[Col.user] = s.user
-            cells[Col.start] = s.start
-            cells[Col.path] = s.path
-            var row: TableRowData
-            if p.isRestricted {
-                for c in Self.unreadable { cells[c] = Self.dash }
-                row = TableRowData(id: .process(p.id), cells: cells)
-                row.tooltips = p.path == nil ? Self.restrictedTooltips : Self.cmdTooltips
-            } else {
-                cells[Col.arch] = s.arch
-                cells[Col.threads] = String(p.threadCount)
-                cells[Col.cpu] = FastFormat.percent(Double(cpuTenths) / 1000)
-                cells[Col.memory] = FastFormat.bytes(memQ)
-                cells[Col.cmdline] = cmd ?? ""
-                cells[Col.sign] = sign ?? ""
-                row = TableRowData(id: .process(p.id), cells: cells)
-            }
-            nextRev &+= 1
-            row.rev = nextRev
-            s.sig = sig
-            s.row = row
-            out.append(row)
-        }
-        feed.push(out)
+        feed.push(arranged(tree.roots).compactMap(node))
 
         if statics.count > table.processes.count * 2 + 64 {
             statics = statics.filter { table.processes[$0.key] != nil }

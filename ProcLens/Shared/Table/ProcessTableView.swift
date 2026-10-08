@@ -15,13 +15,23 @@ struct ProcessTableView: NSViewRepresentable {
     var onSelectionChange: (([ProcessID]) -> Void)?
     var onExpansionChange: ((Set<NodeID>) -> Void)?
     var handler: any ProcessActionHandler
+    /// Column that carries the disclosure triangles / indentation; nil = the first column.
+    var outlineColumnID: String?
+    /// Tree mode: nodes with children start expanded; only nodes the user collapsed stay collapsed.
+    var expandByDefault = false
+    /// Double-click on a process row always opens it (even if it has children, which expand via the triangle).
+    var doubleClickOpens = false
 
     init(autosaveName: String, columns: [TableColumnSpec], feed: TableFeed, sort: TableSort,
          onSortChange: @escaping (TableSort) -> Void,
          onVisibleIDsChange: (([ProcessID]) -> Void)? = nil,
          onSelectionChange: (([ProcessID]) -> Void)? = nil,
          onExpansionChange: ((Set<NodeID>) -> Void)? = nil,
-         handler: any ProcessActionHandler) {
+         handler: any ProcessActionHandler,
+         outlineColumnID: String? = nil, expandByDefault: Bool = false, doubleClickOpens: Bool = false) {
+        self.outlineColumnID = outlineColumnID
+        self.expandByDefault = expandByDefault
+        self.doubleClickOpens = doubleClickOpens
         self.autosaveName = autosaveName
         self.columns = columns
         self.feed = feed
@@ -53,6 +63,7 @@ struct ProcessTableView: NSViewRepresentable {
         let c = context.coordinator
         c.parent = self
         c.syncSortDescriptors()
+        c.syncOutlineColumn()
         c.attach(feed)
     }
 
@@ -69,6 +80,12 @@ struct ProcessTableView: NSViewRepresentable {
         private var index: [NodeID: TableNode] = [:]
         private var indexValid = false
         private var expanded: Set<NodeID> = [.group(.apps), .group(.background), .group(.system)]
+        /// `expandByDefault` mode: nodes the user collapsed (everything else with children is expanded).
+        private var collapsed: Set<NodeID> = []
+        private var lastReloadToken = 0
+        private func shouldExpand(_ id: NodeID) -> Bool {
+            parent.expandByDefault ? !collapsed.contains(id) : expanded.contains(id)
+        }
         private var suppressCallbacks = false
         private var structureChanged = false
         /// `beginUpdates` is only issued when a tick actually changes structure (it is surprisingly costly).
@@ -138,11 +155,20 @@ struct ProcessTableView: NSViewRepresentable {
             apply(feed.rows)
         }
 
+        func syncOutlineColumn() {
+            let want = parent.outlineColumnID.flatMap { id in outline.tableColumns.first { $0.identifier.rawValue == id } }
+                ?? outline.tableColumns.first
+            guard let want, outline.outlineTableColumn !== want else { return }
+            outline.outlineTableColumn = want
+            outline.needsDisplay = true
+        }
+
         func syncSortDescriptors() {
             let want = parent.sort
             if let d = outline.sortDescriptors.first, d.key == want.key, d.ascending == want.ascending { return }
             suppressCallbacks = true
             outline.sortDescriptors = [NSSortDescriptor(key: want.key, ascending: want.ascending)]
+            outline.headerView?.needsDisplay = true
             suppressCallbacks = false
         }
 
@@ -156,7 +182,10 @@ struct ProcessTableView: NSViewRepresentable {
             suppressCallbacks = true
             defer { suppressCallbacks = false }
 
-            if roots.isEmpty || newRows.isEmpty {
+            let token = attachedFeed?.reloadToken ?? 0
+            let forceReload = token != lastReloadToken
+            lastReloadToken = token
+            if roots.isEmpty || newRows.isEmpty || forceReload {
                 // Initial population (or everything filtered away): a single bulk load, never per tick.
                 roots = newRows.map(TableNode.init)
                 outline.reloadData()
@@ -171,7 +200,7 @@ struct ProcessTableView: NSViewRepresentable {
             if !inserted.isEmpty || structureChanged { indexValid = false }
             structureChanged = false
 
-            for node in inserted where !node.children.isEmpty && expanded.contains(node.id) {
+            for node in inserted where !node.children.isEmpty && shouldExpand(node.id) {
                 outline.expandItem(node)
             }
 
@@ -256,6 +285,7 @@ struct ProcessTableView: NSViewRepresentable {
                 structureChanged = true
                 let fresh = new.map(TableNode.init)
                 parent.children = fresh
+                if self.parent.expandByDefault { inserted.append(parent) }
                 inserted.append(contentsOf: flatten(fresh))
                 batch()
                 outline.reloadItem(parent, reloadChildren: true)
@@ -440,13 +470,19 @@ struct ProcessTableView: NSViewRepresentable {
         }
 
         func outlineViewItemDidExpand(_ notification: Notification) {
-            if let node = notification.userInfo?["NSObject"] as? TableNode { expanded.insert(node.id) }
+            if let node = notification.userInfo?["NSObject"] as? TableNode {
+                expanded.insert(node.id)
+                if !suppressCallbacks { collapsed.remove(node.id) }
+            }
             reportVisible()
             parent.onExpansionChange?(expanded)
         }
 
         func outlineViewItemDidCollapse(_ notification: Notification) {
-            if let node = notification.userInfo?["NSObject"] as? TableNode { expanded.remove(node.id) }
+            if let node = notification.userInfo?["NSObject"] as? TableNode {
+                expanded.remove(node.id)
+                if !suppressCallbacks { collapsed.insert(node.id) }
+            }
             reportVisible()
             parent.onExpansionChange?(expanded)
         }
@@ -492,7 +528,7 @@ struct ProcessTableView: NSViewRepresentable {
         @objc private func doubleClicked() {
             let row = outline.clickedRow
             guard row >= 0, let node = outline.item(atRow: row) as? TableNode else { return }
-            if let pid = node.id.processID, node.children.isEmpty {
+            if let pid = node.id.processID, node.children.isEmpty || parent.doubleClickOpens {
                 parent.handler.open([pid])
             } else if outline.isItemExpanded(node) {
                 outline.collapseItem(node)
@@ -560,7 +596,9 @@ struct ProcessTableView: NSViewRepresentable {
             guard !contextIDs.isEmpty else { return }
             for entry in ProcessAction.menuLayout {
                 guard let action = entry else { menu.addItem(.separator()); continue }
-                let item = NSMenuItem(title: action.title, action: #selector(contextAction(_:)), keyEquivalent: "")
+                if action == .endTree && contextIDs.count != 1 { continue }
+                let item = NSMenuItem(title: action.title, action: #selector(contextAction(_:)), keyEquivalent: action == .properties ? "i" : "")
+                if action == .properties { item.keyEquivalentModifierMask = .command }
                 item.target = self
                 item.representedObject = action.rawValue
                 menu.addItem(item)
