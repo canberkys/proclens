@@ -13,4 +13,4 @@ First release: Phases 1 to 3.
 - History tab (last hour, spikes, top processes at any moment) and threshold alerts with notifications.
 - Menu bar CPU graph with a quick panel and a configurable global shortcut.
 - Separate `proclens` command-line tool: ps, top, ports, kill, launchd and system with JSON and CSV output.
-- No telemetry. The only network request is the opt-in update check.
+- No telemetry. The only network request is the Sparkle update check (daily at most, can be turned off).

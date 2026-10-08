@@ -16,7 +16,7 @@ struct ProcLensApp: App {
         // Sampling and the menu bar graph must not depend on the window existing (it can be closed or not yet on screen).
         model.start()
         AlertNotifier.shared.start(services: model.services)
-        UpdateChecker.shared.startAutomatic()  // no-op unless the user enabled automatic checks
+        _ = UpdaterController.shared  // starts Sparkle's scheduled checks
         #if DEBUG
         DispatchQueue.main.async {  // neither needs the main window (it may never appear on a locked screen)
             PanelSnapshot.scheduleIfRequested()
@@ -46,11 +46,6 @@ struct ProcLensApp: App {
             ReleaseNotesView()
         }
         .defaultSize(width: 560, height: 480)
-
-        Window("Software Update", id: "updates") {
-            UpdateWindow()
-        }
-        .windowResizability(.contentSize)
 
         Settings {
             SettingsView()

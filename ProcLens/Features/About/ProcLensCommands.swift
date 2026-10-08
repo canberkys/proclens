@@ -24,6 +24,7 @@ struct ProcLensCommands: Commands {
     @FocusedValue(\.windowActions) private var window
     @FocusedValue(\.selectedProcessIDs) private var selected
     @Environment(\.openWindow) private var openWindow
+    private var updater: UpdaterController { .shared }
 
     private var ids: [ProcessID] { selected ?? [] }
     private var noSelection: Bool { ids.isEmpty }
@@ -33,10 +34,8 @@ struct ProcLensCommands: Commands {
         CommandGroup(replacing: .appInfo) {
             Button("About ProcLens") { window?.showAbout() }
                 .disabled(window == nil)
-            Button("Check for Updates…") {
-                openWindow(id: "updates")
-                NSApp.activate(ignoringOtherApps: true)
-            }
+            Button("Check for Updates…") { updater.checkForUpdates() }
+                .disabled(!updater.canCheckForUpdates)
         }
 
         SidebarCommands()

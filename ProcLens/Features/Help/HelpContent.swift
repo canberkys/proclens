@@ -161,7 +161,7 @@ enum HelpContent {
                   summary: "No telemetry, ever.",
                   blocks: [
                     .paragraph("ProcLens collects nothing and sends nothing. History and alert state stay on your Mac, and history is not even saved."),
-                    .paragraph("The one exception is the update check. It is a single request to the GitHub releases page of the project. It runs when you choose Check for Updates… and automatically at most once a day; you can turn the automatic check off in Settings → Updates. It sends no identifiers beyond the app name and version in the request header."),
+                    .paragraph("The one exception is the update check, done by Sparkle. It fetches a small feed file hosted on GitHub when you choose Check for Updates… and automatically at most once a day; you can turn the automatic check off in Settings → Updates. Updates are signed and verified before they install, and Sparkle sends only the app name and version, no identifiers."),
                   ]),
         HelpTopic(id: "shortcuts", title: "Keyboard shortcuts", symbol: "keyboard", color: .brown,
                   summary: "Everything you can do without the mouse.",

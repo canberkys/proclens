@@ -5,8 +5,6 @@ import SwiftUI
 /// Debug-only hooks (launch arguments), all render offscreen and quit:
 ///   -ProcLensHelpSnapshot <png> [-ProcLensHelpTopic <id>]   the Help window
 ///   -ProcLensNotesSnapshot <png>                             the Release Notes window
-///   -ProcLensUpdateSnapshot <png> [-ProcLensUpdateStub available|uptodate|none|error]   the update window with a stubbed result
-///   -ProcLensUpdateCheckLog 1                                runs the real check once, prints `UPDATECHECK <outcome>` and quits
 enum HelpDebug {
     @MainActor
     static func scheduleIfRequested() {
@@ -16,24 +14,6 @@ enum HelpDebug {
             render(HelpView(), size: CGSize(width: 860, height: 600), to: path)
         } else if let path = d.string(forKey: "ProcLensNotesSnapshot") {
             render(ReleaseNotesView(), size: CGSize(width: 560, height: 480), to: path)
-        } else if let path = d.string(forKey: "ProcLensUpdateSnapshot") {
-            let release = ReleaseInfo(tag: "v0.2.0", url: URL(string: "https://github.com/canberkys/proclens/releases/tag/v0.2.0")!,
-                                      notes: "## What's new\n- Menu bar and Help\n- Update check\n- Faster Details tree", published: Date())
-            let outcome: UpdateOutcome = switch d.string(forKey: "ProcLensUpdateStub") ?? "available" {
-            case "uptodate": .upToDate(current: UpdateChecker.currentVersion)
-            case "none": .noReleases
-            case "error": .failed("Could not reach GitHub. Check your internet connection and try again.")
-            default: .available(release)
-            }
-            render(UpdateWindow(stubbed: outcome), size: CGSize(width: 400, height: 420), to: path)
-        } else if d.bool(forKey: "ProcLensUpdateCheckLog") {
-            Task { @MainActor in
-                let checker = UpdateChecker(defaults: UserDefaults(suiteName: "ProcLensUpdateDebug")!)
-                await checker.checkNow()
-                print("UPDATECHECK \(String(describing: checker.outcome)) lastChecked=\(String(describing: checker.lastChecked))")
-                fflush(stdout)
-                exit(0)
-            }
         }
     }
 
