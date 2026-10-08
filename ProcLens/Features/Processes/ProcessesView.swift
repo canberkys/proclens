@@ -1,4 +1,5 @@
 import ProcLensCore
+import AppKit
 import SwiftUI
 
 struct ProcessesView: View {
@@ -9,7 +10,7 @@ struct ProcessesView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            TotalsBar(vm: vm)
+            TotalsBar(vm: vm).frame(height: 33)
             Divider()
             ProcessTableView(
                 autosaveName: "ProcLens.processesTable",
@@ -38,27 +39,57 @@ struct ProcessesView: View {
     }
 }
 
-private struct TotalsBar: View {
+/// Totals strip drawn with plain labels that the view model updates in place (only when the text changes), so a
+/// tick never re-evaluates SwiftUI bodies or re-lays out the hosting view.
+private struct TotalsBar: NSViewRepresentable {
     let vm: ProcessesViewModel
 
-    var body: some View {
-        HStack(spacing: 24) {
-            stat("CPU", vm.totals.cpu)
-            stat("Memory", vm.totals.memory)
-            stat("Disk", vm.totals.disk)
-            Spacer()
-        }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .accessibilityElement(children: .combine)
+    func makeNSView(context: Context) -> TotalsStrip {
+        let strip = TotalsStrip()
+        vm.totalsSink = { [weak strip] t in strip?.show(t) }
+        strip.show(vm.totals)
+        return strip
     }
 
-    private func stat(_ title: String, _ value: String) -> some View {
-        HStack(spacing: 6) {
-            Text(title).foregroundStyle(.secondary)
-            Text(value).fontWeight(.semibold).monospacedDigit()
-                .frame(width: 72, alignment: .leading)
+    func updateNSView(_ strip: TotalsStrip, context: Context) {}
+}
+
+@MainActor
+final class TotalsStrip: NSView {
+    private let titles = ["CPU", "Memory", "Disk"]
+    private let values = (0..<3).map { _ in NSTextField(labelWithString: "") }
+    private var last: [String] = ["", "", ""]
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        let regular = NSFont.systemFont(ofSize: 13)
+        let semibold = NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .semibold)
+        for (i, title) in titles.enumerated() {
+            let t = NSTextField(labelWithString: title)
+            t.font = regular
+            t.textColor = .secondaryLabelColor
+            t.sizeToFit()
+            t.frame.origin = NSPoint(x: 12 + CGFloat(i) * 168, y: 8)
+            addSubview(t)
+            let v = values[i]
+            v.font = semibold
+            v.lineBreakMode = .byClipping
+            v.frame = NSRect(x: t.frame.maxX + 6, y: 8, width: 72, height: t.frame.height)
+            addSubview(v)
         }
-        .font(.callout)
+        setAccessibilityElement(true)
+        setAccessibilityRole(.staticText)
+    }
+
+    required init?(coder: NSCoder) { fatalError("init(coder:) is not used") }
+
+    override var intrinsicContentSize: NSSize { NSSize(width: NSView.noIntrinsicMetric, height: 33) }
+
+    func show(_ t: ProcessesViewModel.Totals) {
+        let new = [t.cpu, t.memory, t.disk]
+        guard new != last else { return }
+        last = new
+        for (field, text) in zip(values, new) { field.stringValue = text }
+        setAccessibilityLabel(zip(titles, new).map { "\($0) \($1)" }.joined(separator: ", "))
     }
 }

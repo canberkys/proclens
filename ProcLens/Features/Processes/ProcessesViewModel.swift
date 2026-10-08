@@ -23,7 +23,9 @@ final class ProcessesViewModel {
     ]
 
     @ObservationIgnored let feed = TableFeed()
-    private(set) var totals = Totals()
+    @ObservationIgnored private(set) var totals = Totals()
+    /// Set by the totals strip; called (only on change) instead of publishing through `@Observable`.
+    @ObservationIgnored var totalsSink: ((Totals) -> Void)?
     var searchText = ""
     var sort: TableSort {
         didSet { UserDefaults.standard.set([sort.key, sort.ascending ? "1" : "0"], forKey: Self.sortKey) }
@@ -373,7 +375,7 @@ final class ProcessesViewModel {
         if let cpu = s.cpu { t.cpu = Format.percent(cpu.total) }
         if let mem = s.memory, mem.total > 0 { t.memory = Format.percent(Double(mem.used) / Double(mem.total)) }
         if let disk = s.disk { t.disk = Format.rate(disk.readPerSec + disk.writePerSec) }
-        if t != totals { totals = t }
+        if t != totals { totals = t; totalsSink?(t) }
     }
 
     private func makeRow(_ e: Entry, ctx: Context) -> TableRowData {

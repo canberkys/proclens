@@ -41,6 +41,7 @@ struct ContentView: View {
     @Environment(ProcessActionCenter.self) private var actions
     @State private var showEndByPID = false
     @State private var showAbout = false
+    @Environment(\.openWindow) private var openWindow
 
     var body: some View {
         NavigationSplitView {
@@ -90,6 +91,8 @@ struct ContentView: View {
                 .accessibilityLabel("End process by PID")
             }
         }
+        .background(NoRestoration())
+        .onAppear { WindowOpener.openMain = { openWindow(id: "main") } }
         .sheet(isPresented: $showEndByPID) { EndByPIDSheet() }
         .sheet(isPresented: $showAbout) { AboutView() }
         .focusedSceneValue(\.windowActions, WindowActions(showEndByPID: { showEndByPID = true },
@@ -135,3 +138,17 @@ enum SelfTest {
     }
 }
 #endif
+
+/// Turns off AppKit window state restoration for the hosting window. Its flush scheduler re-encodes and
+/// snapshots the window whenever it redraws, which was a measurable share of our per-tick CPU.
+struct NoRestoration: NSViewRepresentable {
+    func makeNSView(context: Context) -> NSView { Hook() }
+    func updateNSView(_ view: NSView, context: Context) {}
+
+    private final class Hook: NSView {
+        override func viewDidMoveToWindow() {
+            super.viewDidMoveToWindow()
+            window?.isRestorable = false
+        }
+    }
+}

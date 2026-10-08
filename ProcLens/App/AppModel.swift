@@ -139,7 +139,10 @@ final class AppModel {
     private func ingest(_ snapshot: SystemSnapshot) {
         latest = snapshot
         if isWindowVisible { visibleSnapshot = snapshot }
-        history.append(snapshot)
+        // The graphs never need the process table; keeping 60 of them alive cost tens of MB.
+        var slim = snapshot
+        slim.processes = nil
+        history.append(slim)
         let capacity = max(1, Int(Self.historySeconds / interval.rawValue))
         if history.count > capacity { history.removeFirst(history.count - capacity) }
     }

@@ -21,7 +21,6 @@ private enum Metric: String, CaseIterable { case cpu = "CPU", memory = "Memory" 
 private struct QuickPanel: View {
     @Environment(AppModel.self) private var model
     @Environment(ProcessActionCenter.self) private var actions
-    @Environment(\.openWindow) private var openWindow
     @State private var query = ""
     @State private var metric = Metric.cpu
     @FocusState private var searchFocused: Bool
@@ -103,13 +102,11 @@ private struct QuickPanel: View {
     private var footer: some View {
         HStack {
             Button("Open ProcLens") {
-                openWindow(id: "main")
-                NSApplication.shared.activate(ignoringOtherApps: true)
+                WindowOpener.showMainWindow()
             }
             Spacer()
-            SettingsLink { Image(systemName: "gearshape") }
+            Button { WindowOpener.showSettings() } label: { Image(systemName: "gearshape") }
                 .buttonStyle(.borderless).help("Settings")
-                .simultaneousGesture(TapGesture().onEnded { NSApplication.shared.activate(ignoringOtherApps: true) })
             Button { NSApplication.shared.terminate(nil) } label: { Image(systemName: "power") }
                 .buttonStyle(.borderless).help("Quit ProcLens")
         }

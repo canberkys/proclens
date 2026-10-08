@@ -11,6 +11,26 @@ Architecture decisions and code reuse log. Newest first.
 
 ---
 
+### 2026-10-08 — Size and overhead targets revised after Phase 2/3
+- **Decision:**
+  - **Bundle size:** the universal app bundle target is now ≤ 6 MB including the helper. It is 4.9 MB measured without the helper: 3.5 MB binary + 1.2 MB asset catalog. The earlier < 3 MB target predates Phase 2/3.
+  - **CLI:** the `proclens` CLI (2.8 MB) is not embedded in the app; it ships separately via Homebrew.
+  - **Overhead budget:** < 1% CPU applies to background operation (window hidden, menu bar only), measured at 0.36–0.53%. With the window visible at 1 s and ~1,050 processes, ~1.1–1.9% is accepted for now. Footprint is ~21 MB after `Sampler.history` stopped retaining full process tables (was 72–80 MB).
+- **Why:**
+  - Real features (inspector, launchd, history, alerts) roughly doubled the code.
+  - `-Osize` saved only 0.4 MB and slows the hot path.
+  - In visible mode, the full sampler (~0.9%) plus the table redraw is a floor at 1 s sampling.
+- **Alternatives considered:**
+  - `-Osize` for everything.
+  - Shipping arm64 only (SPEC requires Intel support).
+  - A 2 s default interval. Rejected for now: Windows Task Manager parity uses 1 s, and users can pick 2 s.
+
+### 2026-10-08 — Menu bar: own NSStatusItem + NSPopover, throttled bitmap graph
+- **Decision:** `MenuBarExtra` is replaced by `StatusItemController` (`MenuBarViews.swift`): an `NSStatusItem` whose button gets a pre-tinted bitmap (24 CPU bars + optional percentage), and an `NSPopover` (transient, no animation) that hosts the existing `MenuBarContent` / `QuickPanel` with the same `.processActionConfirmation(actions)` host. The popover content is created on open and freed on close; `model.setPanelOpen(false)` runs in `popoverDidClose`. The graph is redrawn at most every 1.5 s (bars advance two samples at a time at 1 s sampling) and only when a bar height or the text changed; the item has a fixed length. The image is redrawn when the button's `effectiveAppearance` changes. "Open ProcLens" / Settings go through `WindowOpener` (`showSettingsWindow:` for Settings). `AppModel.start()` now runs from `App.init`, not from the window's `.task`, so sampling and the graph never depend on the window existing. Also: `NSWindow.isRestorable = false` on the main window (AppKit's restoration flush re-snapshots the window and showed up in profiles), the Processes totals strip is plain `NSTextField`s updated in place instead of a SwiftUI view, and `AppModel.history` no longer keeps process tables.
+- **Why:** Hidden-window CPU was 1.16%, dominated by `MenuBarExtra` re-laying out and re-rendering its label for every new `NSImage` (AppKit `_updateReplicants`, appearance and layout work). Measured, Release, 30 s cputime delta: SwiftUI label 1.16%, direct `button.image` every tick ~0.7-1.0%, redraw every 1.5 s ~0.36%, no redraw at all 0.16% (floor).
+- **Alternatives considered:** layer-backed `NSView` / `CAShapeLayer` inside the button (tried: 18-26% CPU, because the status item replicant snapshot software-renders the whole layer tree via `renderInContext` on every change); template image (costlier to draw than a pre-tinted one); keeping `MenuBarExtra` and only throttling (still pays SwiftUI label diffing and layout per redraw).
+- **Open:** `ProcLensCore.Sampler` keeps its own 60-snapshot ring (`history`, only used by tests) including every process table: ~13-17 MB at 1,055 processes. The app does not read it. Not touched here (Core is out of scope for this change); dropping `processes` from that ring, or making it optional, is the largest remaining footprint win.
+
 ### 2026-10-08 — Phase 3 core: bounded history, alert engine, `proclens` CLI
 - **Decision:**
   - `History/ProcessHistory` (actor, in-memory only, nothing persisted; starts empty each launch). System totals (cpu, memory used, disk r+w, network rx+tx physical, gpu) at 1 s for 10 min and as 10 s buckets (mean + peak) for 1 h. Per 10 s bucket only the union of top 20 by CPU and top 20 by memory is stored (pid, start time, interned name index, cpu mean as Float, memory peak): at most 40 x 32 B x 360 buckets. `spikes` uses the bucket **peak** so a 1 s spike is not averaged away; `topProcesses(at:)` returns the nearest bucket (half-open, boundary belongs to the later one) including the still-open one. `series(for:)` only has points where the process was in a top list. An open-bucket accumulator (one entry per live process) is the only per-process state over the whole table and is discarded every 10 s. Measured estimate (MemoryLayout strides x counts, test `memoryStaysUnderSixMegabytesForAnHourOf1050Processes`): ~0.8 MB for 1 h at 1,050 processes (budget 6 MB). Names are interned and compacted past 4,096.

@@ -106,12 +106,17 @@ public actor Sampler {
         let snapshot = await SystemSnapshot(tick: n, instant: instant, cpu: cpuSample, memory: memorySample,
                                             processes: processTable, gpu: gpuSample, disk: diskSample,
                                             network: networkSample)
-        history.append(snapshot)
+        // History keeps system-level fields only: 60 full process tables would cost 13–17 MB
+        // and nobody reads them (per-process history lives in ProcessHistory, top-N only).
+        var light = snapshot
+        light.processes = nil
+        history.append(light)
         continuation.yield(snapshot)
         return snapshot
     }
 
     /// Up to the last 60 seconds of snapshots, oldest first.
+    /// System-level snapshots (`processes` is always nil here; see `ProcessHistory`).
     public func recentHistory() -> [SystemSnapshot] { history.elements }
 
     // MARK: - Private

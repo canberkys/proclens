@@ -4,12 +4,20 @@ import SwiftUI
 struct ProcLensApp: App {
     @State private var model: AppModel
     @State private var actions: ProcessActionCenter
+    @State private var statusItem: StatusItemController
 
     init() {
         let model = AppModel()
         _model = State(initialValue: model)
-        _actions = State(initialValue: ProcessActionCenter(model: model))
+        let actions = ProcessActionCenter(model: model)
+        _actions = State(initialValue: actions)
+        _statusItem = State(initialValue: StatusItemController(model: model, actions: actions))
         AppPresentation.applyStoredActivationPolicy()
+        // Sampling and the menu bar graph must not depend on the window existing (it can be closed or not yet on screen).
+        model.start()
+        #if DEBUG
+        DispatchQueue.main.async { PanelSnapshot.scheduleIfRequested() }  // needs no window
+        #endif
     }
 
     var body: some Scene {
@@ -20,25 +28,13 @@ struct ProcLensApp: App {
                 .processActionConfirmation(actions)
                 .globalHotKey()
                 .task {
-                    model.start()
                     #if DEBUG
                     DebugSnapshot.scheduleIfRequested()
-                    PanelSnapshot.scheduleIfRequested()
                     #endif
                 }
                 .frame(minWidth: 900, minHeight: 600)
         }
         .commands { ProcLensCommands() }
-
-        MenuBarExtra {
-            MenuBarContent()
-                .environment(model)
-                .environment(actions)
-                .processActionConfirmation(actions)
-        } label: {
-            MenuBarLabel(model: model)
-        }
-        .menuBarExtraStyle(.window)
 
         Settings {
             SettingsView()
