@@ -179,7 +179,7 @@ final class ProcessActionCenter {
                 return "Not permitted. Ending processes of other users needs the helper (Phase 2)."
             }
             do {
-                try await model.services.helper.signalProcess(pid: p.pid, signal: sig, expectedStartTime: p.id.startTime)
+                try await model.services.helper.signalProcess(pid: p.pid, signal: sig, expectedStartTime: p.id.startTime, expectedName: p.name)
                 return nil
             } catch let failure as HelperFailure where failure.code == .notFound || failure.code == .processChanged {
                 return nil // already gone (or replaced): the intent is satisfied

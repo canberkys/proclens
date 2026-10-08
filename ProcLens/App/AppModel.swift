@@ -30,7 +30,7 @@ final class AppModel {
     /// Opt-in: keep sampling processes while the window is hidden (needed for per-process alerts).
     private(set) var backgroundMonitoring = UserDefaults.standard.bool(forKey: "backgroundMonitoring")
 
-    @ObservationIgnored private let processCollector = ProcessCollector(source: LiveProcessSource(), idleThrottling: true, restricted: HelperClient.shared)
+    @ObservationIgnored private let processCollector = ProcessCollector(source: LiveProcessSource(), idleThrottling: true, restricted: AppModel.helperSource)
     /// Everything the window needs (processes, disk, network, GPU).
     @ObservationIgnored private let sampler: Sampler
     /// CPU + memory only: the menu bar graph and menu. Runs instead of `sampler` while the window is hidden,
@@ -41,6 +41,10 @@ final class AppModel {
     @ObservationIgnored private var samplerSwitch: Task<Void, Never>?
     @ObservationIgnored private var appsRefreshPending = false
     @ObservationIgnored private var workspaceObservers: [NSObjectProtocol] = []
+
+    /// The privileged helper, unless PROCLENS_NO_HELPER=1 (A/B overhead measurements).
+    private static let helperSource: (any RestrictedProcessSource)? =
+        ProcessInfo.processInfo.environment["PROCLENS_NO_HELPER"] == "1" ? nil : HelperClient.shared
 
     init() {
         let host = LiveHostSource()

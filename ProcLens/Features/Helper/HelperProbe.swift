@@ -59,24 +59,24 @@ enum HelperProbe {
         // Signal path (SIGCONT is a no-op on running processes): critical process refused, wrong start time refused.
         if let mds = table.processes.values.first(where: { $0.name == "mds" && $0.uid == 0 }) {
             do {
-                try await helper.signalProcess(pid: mds.pid, signal: SIGCONT, expectedStartTime: mds.id.startTime)
+                try await helper.signalProcess(pid: mds.pid, signal: SIGCONT, expectedStartTime: mds.id.startTime, expectedName: mds.name)
                 say("signal mds: UNEXPECTEDLY allowed")
             } catch {
                 say("signal mds (critical): refused as expected: \(error.localizedDescription)")
             }
         }
-        if let target = table.processes.values.first(where: { $0.name == "mDNSResponder" && $0.uid == 0 }) {
+        if let target = table.processes.values.first(where: { $0.name == "fseventsd" && $0.uid == 0 }) {
             do {
-                try await helper.signalProcess(pid: target.pid, signal: SIGCONT, expectedStartTime: target.id.startTime &+ 1)
-                say("signal with wrong start time: UNEXPECTEDLY allowed")
+                try await helper.signalProcess(pid: target.pid, signal: SIGCONT, expectedStartTime: target.id.startTime, expectedName: "not-" + target.name)
+                say("signal with another process name: UNEXPECTEDLY allowed")
             } catch {
-                say("signal with wrong start time: refused as expected: \(error.localizedDescription)")
+                say("signal with another process name: refused as expected: \(error.localizedDescription)")
             }
             do {
-                try await helper.signalProcess(pid: target.pid, signal: SIGCONT, expectedStartTime: target.id.startTime)
-                say("signal SIGCONT mDNSResponder, right start time: ok (no-op on a running process)")
+                try await helper.signalProcess(pid: target.pid, signal: SIGCONT, expectedStartTime: target.id.startTime, expectedName: target.name)
+                say("signal SIGCONT fseventsd, matching identity: ok (no-op on a running process)")
             } catch {
-                say("signal SIGCONT, right start time: failed: \(error.localizedDescription)")
+                say("signal SIGCONT, matching identity: failed: \(error.localizedDescription)")
             }
         }
     }

@@ -15,5 +15,7 @@ public protocol RestrictedProcessSource: Sendable {
 /// Signals a process the app is not allowed to signal itself (the helper refuses critical processes).
 public protocol PrivilegedSignaller: Sendable {
     var isEnabled: Bool { get }
-    func signalProcess(pid: Int32, signal: Int32, expectedStartTime: UInt64) async throws
+    /// `expectedStartTime` is `ProcessID.startTime` (µs); 0 means "unknown" (the app cannot read the start time of
+    /// root-owned processes), in which case the implementation resolves it and checks `expectedName` instead.
+    func signalProcess(pid: Int32, signal: Int32, expectedStartTime: UInt64, expectedName: String?) async throws
 }

@@ -234,11 +234,11 @@ final class MockPrivileged: PrivilegedSignaller, @unchecked Sendable {
     let isEnabled: Bool
     let controller: MockController
     private let lock = NSLock()
-    private var recorded: [(pid: Int32, signal: Int32, start: UInt64)] = []
-    var calls: [(pid: Int32, signal: Int32, start: UInt64)] { lock.withLock { recorded } }
+    private var recorded: [(pid: Int32, signal: Int32, start: UInt64, name: String?)] = []
+    var calls: [(pid: Int32, signal: Int32, start: UInt64, name: String?)] { lock.withLock { recorded } }
     init(enabled: Bool = true, controller: MockController) { isEnabled = enabled; self.controller = controller }
-    func signalProcess(pid: Int32, signal: Int32, expectedStartTime: UInt64) async throws {
-        lock.withLock { recorded.append((pid, signal, expectedStartTime)) }
+    func signalProcess(pid: Int32, signal: Int32, expectedStartTime: UInt64, expectedName: String?) async throws {
+        lock.withLock { recorded.append((pid, signal, expectedStartTime, expectedName)) }
         _ = controller.send(SIGKILL, to: pid)
     }
 }
@@ -246,8 +246,10 @@ final class MockPrivileged: PrivilegedSignaller, @unchecked Sendable {
 /// Every signal fails with EPERM while the process lives (a root-owned process).
 final class EpermController: ProcessController, @unchecked Sendable {
     let base: MockController
-    init(base: MockController) { self.base = base }
-    func startTime(pid: pid_t) -> UInt64? { base.startTime(pid: pid) }
+    /// Root-owned processes: the app cannot read their start time (it is 0 in the table too).
+    let hidesStartTime: Bool
+    init(base: MockController, hidesStartTime: Bool = false) { self.base = base; self.hidesStartTime = hidesStartTime }
+    func startTime(pid: pid_t) -> UInt64? { hidesStartTime ? nil : base.startTime(pid: pid) }
     func send(_ signal: Int32, to pid: pid_t) -> Int32 { base.isAlive(pid: pid) ? EPERM : ESRCH }
     func isAlive(pid: pid_t) -> Bool { base.isAlive(pid: pid) }
 }
@@ -264,6 +266,19 @@ struct TreeKillerPrivilegedTests {
         #expect(priv.calls.map(\.pid) == [101, 100])
         #expect(priv.calls.allSatisfy { $0.signal == SIGTERM })
         #expect(priv.calls.map(\.start) == [101, 100])  // the start-time identity travels with the request
+        #expect(priv.calls.map(\.name) == ["p", "rootd"])
+    }
+
+    @Test func unreadableStartTimeStillReachesTheHelper() async {
+        let t = treeTable([treeSample(100, ppid: 1, start: 0, name: "rootd")])
+        let base = MockController(alive: [100])
+        let priv = MockPrivileged(controller: base)
+        let root = t.processes.keys.first { $0.pid == 100 }!
+        let results = await TreeKiller(controller: EpermController(base: base, hidesStartTime: true), ownPID: 9999, privileged: priv)
+            .kill(root: root, in: t, gracePeriod: .milliseconds(100), pollInterval: .milliseconds(10))
+        #expect(results.map(\.outcome) == [.terminated])
+        #expect(priv.calls.map(\.start) == [0])  // 0 = unknown: HelperClient resolves it and checks the name
+        #expect(priv.calls.map(\.name) == ["rootd"])
     }
 
     @Test func withoutHelperEpermStaysFailed() async {

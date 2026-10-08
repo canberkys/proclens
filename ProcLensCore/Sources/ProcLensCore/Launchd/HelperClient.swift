@@ -189,6 +189,22 @@ public actor HelperClient: PrivilegedLaunchdActions, RestrictedProcessSource, Pr
         _ = try await call(HelperEmpty.self) { proxy, reply in proxy.signalProcess(request: request, reply: reply) }
     }
 
+    /// As above, for callers whose `ProcessID.startTime` may be 0 (processes this app cannot read): the helper
+    /// resolves the real start time, and `expectedName` guards against a reused pid.
+    public func signalProcess(pid: Int32, signal: Int32, expectedStartTime: UInt64, expectedName: String?) async throws {
+        var start = expectedStartTime
+        if start == 0 {
+            guard let info = try await readProcessInfo(pids: [pid]).first else {
+                throw HelperFailure(code: .notFound, message: "Process \(pid) no longer exists.")
+            }
+            if let name = expectedName, !name.isEmpty, !(info.name.hasPrefix(name) || name.hasPrefix(info.name)) {
+                throw HelperFailure(code: .processChanged, message: "Process \(pid) was replaced by another process.")
+            }
+            start = info.startTime
+        }
+        try await signalProcess(pid: pid, signal: signal, expectedStartTime: start)
+    }
+
     /// `sfltool dumpbtm` as root, parsed.
     public func backgroundItems() async throws -> [BackgroundItem] {
         try await ensureCompatible()
