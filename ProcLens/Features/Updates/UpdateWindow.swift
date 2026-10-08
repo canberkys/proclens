@@ -67,7 +67,7 @@ struct UpdateWindow: View {
                     "You have version \(UpdateChecker.currentVersion)." + (release.published.map { " Published \($0.formatted(date: .abbreviated, time: .omitted))." } ?? ""))
             if !release.notes.isEmpty {
                 ScrollView {
-                    Text(Self.excerpt(release.notes))
+                    Text(Self.rendered(Self.excerpt(release.notes)))
                         .font(.callout).frame(maxWidth: .infinity, alignment: .leading).textSelection(.enabled)
                 }
                 .frame(height: 140)
@@ -85,7 +85,25 @@ struct UpdateWindow: View {
         }
     }
 
-    /// First part of the release notes (markdown shown as plain text, trimmed).
+    /// GitHub release notes are Markdown: headings become bold lines, list items get bullets,
+    /// inline **bold**/`code`/links are kept. Anything unparseable falls back to plain text.
+    static func rendered(_ markdown: String) -> AttributedString {
+        var out = AttributedString()
+        for (i, raw) in markdown.components(separatedBy: .newlines).enumerated() {
+            var line = raw.trimmingCharacters(in: .whitespaces)
+            var heading = false
+            if line.hasPrefix("#") { line = line.drop { $0 == "#" }.trimmingCharacters(in: .whitespaces); heading = true }
+            else if line.hasPrefix("- ") || line.hasPrefix("* ") { line = "•  " + line.dropFirst(2) }
+            var part = (try? AttributedString(markdown: line, options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)))
+                ?? AttributedString(line)
+            if heading { part.font = .callout.bold() }
+            if i > 0 { out += AttributedString("\n") }
+            out += part
+        }
+        return out
+    }
+
+    /// First part of the release notes (trimmed).
     static func excerpt(_ notes: String, limit: Int = 900) -> String {
         let t = notes.trimmingCharacters(in: .whitespacesAndNewlines)
         return t.count <= limit ? t : String(t.prefix(limit)) + "…"
@@ -101,7 +119,7 @@ struct UpdatesSection: View {
         Section("Updates") {
             Toggle("Automatically check for updates", isOn: Binding(
                 get: { checker.automaticEnabled }, set: { checker.automaticEnabled = $0 }))
-            Text("Once a day at most, a single request to GitHub. Off by default; nothing else leaves your Mac.")
+            Text("Once a day at most, a single request to GitHub. On by default; nothing else leaves your Mac.")
                 .font(.caption).foregroundStyle(.secondary)
             LabeledContent("Last checked") {
                 Text(checker.lastChecked.map { $0.formatted(date: .abbreviated, time: .shortened) } ?? "Never")
