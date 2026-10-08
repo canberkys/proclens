@@ -25,9 +25,19 @@ targets:
     platform: macOS
     sources:
       - path: ProcLens
+      - path: ProcLensHelper/com.canberkki.ProcLens.helper.plist
+        buildPhase:
+          copyFiles:
+            destination: wrapper
+            subpath: Contents/Library/LaunchDaemons
     dependencies:
       - package: ProcLensCore
         product: ProcLensCore
+      - target: ProcLensHelper
+        embed: true
+        codeSign: true
+        copy:
+          destination: executables
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.canberkki.ProcLens
@@ -43,19 +53,26 @@ targets:
         ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME: AccentColor
         MARKETING_VERSION: "0.1.0"
         CURRENT_PROJECT_VERSION: "1"
-  # ProcLensHelper (Phase 2): privileged helper, SMAppService.daemon, embedded in the app bundle.
-  # ProcLensHelper:
-  #   type: tool
-  #   platform: macOS
-  #   sources: [ProcLensHelper]
-  # proclens CLI (Phase 3): shares ProcLensCore, JSON output.
-  # proclens:
-  #   type: tool
-  #   platform: macOS
-  #   sources: [proclens-cli]
-  #   dependencies:
-  #     - package: ProcLensCore
-  #       product: ProcLensCore
+  # Privileged helper (SMAppService.daemon). Embedded at Contents/MacOS/ProcLensHelper;
+  # its launchd plist goes to Contents/Library/LaunchDaemons.
+  ProcLensHelper:
+    type: tool
+    platform: macOS
+    sources:
+      - path: ProcLensHelper
+        excludes: ["*.plist"]
+    dependencies:
+      - package: ProcLensCore
+        product: ProcLensHelperProtocol
+    settings:
+      base:
+        PRODUCT_NAME: ProcLensHelper
+        PRODUCT_BUNDLE_IDENTIFIER: com.canberkki.ProcLens.helper
+        ENABLE_HARDENED_RUNTIME: YES
+        SKIP_INSTALL: YES
+        CODE_SIGN_IDENTITY: "-"
+        CODE_SIGN_STYLE: Manual
+  # proclens CLI (Phase 3) ships separately (Homebrew), not embedded: swift build -c release --product proclens
 schemes:
   ProcLens:
     build:

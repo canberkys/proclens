@@ -25,6 +25,10 @@ final class AppModel {
     /// True while the menu bar panel is open; keeps the full sampler (processes, GPU, network) running even if the window is hidden.
     private(set) var isPanelOpen = false
     let protection = ProtectionPolicy()
+    /// Phase 2/3 services (history, alerts, ports, launchd, helper).
+    let services = AppServices()
+    /// Opt-in: keep sampling processes while the window is hidden (needed for per-process alerts).
+    private(set) var backgroundMonitoring = UserDefaults.standard.bool(forKey: "backgroundMonitoring")
 
     @ObservationIgnored private let processCollector = ProcessCollector(source: LiveProcessSource(), idleThrottling: true)
     /// Everything the window needs (processes, disk, network, GPU).
@@ -86,7 +90,7 @@ final class AppModel {
     /// show/hide cannot leave both (or neither) running.
     private func switchSampler() {
         guard started else { return }
-        let full = isWindowVisible || isPanelOpen
+        let full = needsFullSampler
         let previous = samplerSwitch
         samplerSwitch = Task { [sampler, lightSampler, processCollector] in
             await previous?.value
@@ -101,11 +105,21 @@ final class AppModel {
         }
     }
 
+    private var needsFullSampler: Bool { isWindowVisible || isPanelOpen || backgroundMonitoring }
+
     func setPanelOpen(_ open: Bool) {
         guard open != isPanelOpen else { return }
-        let before = isWindowVisible || isPanelOpen
+        let before = needsFullSampler
         isPanelOpen = open
-        if (isWindowVisible || isPanelOpen) != before { switchSampler() }
+        if needsFullSampler != before { switchSampler() }
+    }
+
+    func setBackgroundMonitoring(_ on: Bool) {
+        guard on != backgroundMonitoring else { return }
+        let before = needsFullSampler
+        backgroundMonitoring = on
+        UserDefaults.standard.set(on, forKey: "backgroundMonitoring")
+        if needsFullSampler != before { switchSampler() }
     }
 
     /// Full argv/env for the Details tab; read on demand, never on the hot path.
@@ -138,6 +152,7 @@ final class AppModel {
 
     private func ingest(_ snapshot: SystemSnapshot) {
         latest = snapshot
+        services.ingest(snapshot)
         if isWindowVisible { visibleSnapshot = snapshot }
         // The graphs never need the process table; keeping 60 of them alive cost tens of MB.
         var slim = snapshot
@@ -198,10 +213,10 @@ final class AppModel {
             $0.canBecomeMain && $0.isVisible && !$0.isMiniaturized && $0.occlusionState.contains(.visible)
         }
         guard visible != isWindowVisible else { return }
-        let before = isWindowVisible || isPanelOpen
+        let before = needsFullSampler
         isWindowVisible = visible
         if visible { visibleSnapshot = latest }
-        if (isWindowVisible || isPanelOpen) != before { switchSampler() }
+        if needsFullSampler != before { switchSampler() }
     }
 
     private func observeWorkspace() {

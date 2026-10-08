@@ -8,6 +8,7 @@ enum SidebarItem: String, CaseIterable, Identifiable {
     case networkPorts = "Network Ports"
     case startup = "Startup"
     case services = "Services"
+    case history = "History"
 
     var id: String { rawValue }
 
@@ -19,13 +20,13 @@ enum SidebarItem: String, CaseIterable, Identifiable {
         case .networkPorts: "network"
         case .startup: "power"
         case .services: "gearshape.2"
+        case .history: "clock.arrow.circlepath"
         }
     }
 
     var isAvailable: Bool {
         switch self {
-        case .processes, .performance, .details: true
-        case .networkPorts, .startup, .services: false
+        case .processes, .performance, .details, .networkPorts, .startup, .services, .history: true
         }
     }
 }
@@ -79,6 +80,7 @@ struct ContentView: View {
             case .networkPorts: NetworkPortsView()
             case .startup: StartupView()
             case .services: ServicesView()
+            case .history: HistoryView()
             }
         }
         .toolbar {
