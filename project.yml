@@ -9,6 +9,10 @@ settings:
     SWIFT_STRICT_CONCURRENCY: complete
     DEAD_CODE_STRIPPING: YES
   configs:
+    Debug:
+      # Ad-hoc dev builds: hardened runtime's library validation rejects Sparkle.framework (signed with a different
+      # Team ID). Release builds are Developer ID signed by scripts/release.sh, where every component shares one team.
+      ENABLE_HARDENED_RUNTIME: NO
     Release:
       # Keep the bundle small: strip all symbols, drop dead code (DECISIONS: small binary).
       DEPLOYMENT_POSTPROCESSING: YES
@@ -19,12 +23,17 @@ settings:
 packages:
   ProcLensCore:
     path: ProcLensCore
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: 2.9.6
 targets:
   ProcLens:
     type: application
     platform: macOS
     sources:
       - path: ProcLens
+      - path: CHANGELOG.md
+        buildPhase: resources
       - path: ProcLensHelper/com.canberkki.ProcLens.helper.plist
         buildPhase:
           copyFiles:
@@ -33,11 +42,23 @@ targets:
     dependencies:
       - package: ProcLensCore
         product: ProcLensCore
+      - package: Sparkle
+        product: Sparkle
       - target: ProcLensHelper
         embed: true
         codeSign: true
         copy:
           destination: executables
+    # Sparkle 2 keys. Merged with the generated Info.plist (GENERATE_INFOPLIST_FILE). The private EdDSA key lives
+    # only in the maintainer's login keychain (generate_keys --account proclens); this is the public half.
+    info:
+      path: ProcLens/Info.plist
+      properties:
+        SUFeedURL: https://raw.githubusercontent.com/canberkys/proclens/main/appcast.xml
+        SUPublicEDKey: YLpPfO4C1ySV1o3+D/ww+GCCY6Dbb83Ma0eBrCHfWSU=
+        SUEnableAutomaticChecks: true
+        SUScheduledCheckInterval: 86400
+        SUAllowsAutomaticUpdates: true
     settings:
       base:
         PRODUCT_BUNDLE_IDENTIFIER: com.canberkki.ProcLens

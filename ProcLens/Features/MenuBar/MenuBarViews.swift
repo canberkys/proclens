@@ -3,29 +3,58 @@ import AppKit
 import Observation
 import ProcLensCore
 
-/// Template bitmap of recent CPU history as bars (+ optional percentage), assigned straight to the status item
-/// button (no SwiftUI label involved). Rendered into a bitmap, not a drawing-handler image, so AppKit does not
-/// re-run drawing code for every status-item replicant refresh.
+/// What the status item shows. Default `.icon`: CPU glyph + percentage (self-explanatory, ~50 pt).
+enum MenuBarStyle: String, CaseIterable, Identifiable {
+    case icon, percent, graph
+    var id: String { rawValue }
+    var title: String {
+        switch self {
+        case .icon: "CPU icon and percentage"
+        case .percent: "Percentage only"
+        case .graph: "Percentage and graph"
+        }
+    }
+    static let defaultsKey = "menuBarStyle"
+    static var stored: MenuBarStyle {
+        UserDefaults.standard.string(forKey: defaultsKey).flatMap(MenuBarStyle.init) ?? .icon
+    }
+}
+
+/// Status item image, rendered into a bitmap and assigned straight to the button (no SwiftUI label),
+/// so AppKit does not re-run drawing code for every status-item replicant refresh.
 @MainActor
 enum MenuBarGraph {
-    static let barCount = 24
-    private static let barW: CGFloat = 2, gap: CGFloat = 1, h: CGFloat = 16
+    static let barCount = 7
+    private static let barW: CGFloat = 4, gap: CGFloat = 1, h: CGFloat = 16, spacing: CGFloat = 4
     private static let scale: CGFloat = 2
-    private static let font = NSFont.monospacedDigitSystemFont(ofSize: 11, weight: .regular)
+    private static let font = NSFont.monospacedDigitSystemFont(ofSize: 13, weight: .medium)
     private static let attrs: [NSAttributedString.Key: Any] = [.font: font]
-    static let graphWidth = CGFloat(barCount) * (barW + gap)
+    private static let iconSize: CGFloat = 15
+    static let graphWidth = CGFloat(barCount) * (barW + gap) - gap
     /// Room for the widest value ("100%"), so the item keeps one length and is never re-laid out per tick.
-    static let textWidth: CGFloat = ceil(("100%" as NSString).size(withAttributes: attrs).width) + 4
+    static let textWidth: CGFloat = ceil(("100%" as NSString).size(withAttributes: attrs).width)
 
-    static func width(showsPercent: Bool) -> CGFloat { graphWidth + (showsPercent ? textWidth : 0) }
-
-    /// Quantized bar heights (pixels of a 16 pt graph); equal heights + text => identical image.
-    static func heights(_ cpu: [Double]) -> [Int] {
-        cpu.suffix(barCount).map { max(1, Int((min(1, max(0, $0)) * h).rounded())) }
+    static func width(_ style: MenuBarStyle) -> CGFloat {
+        switch style {
+        case .icon: iconSize + spacing + textWidth
+        case .percent: textWidth
+        case .graph: textWidth + spacing + graphWidth
+        }
     }
 
-    static func image(heights: [Int], text: String?, color: NSColor) -> NSImage {
-        let size = NSSize(width: width(showsPercent: text != nil), height: h)
+    /// Quantized bar heights in half points of a 16 pt graph; equal heights + text => identical image.
+    static func heights(_ cpu: [Double]) -> [Int] {
+        cpu.suffix(barCount).map { Int((min(1, max(0, $0)) * h * 2).rounded()) }
+    }
+
+    private static func cpuGlyph(color: NSColor) -> NSImage? {
+        let config = NSImage.SymbolConfiguration(pointSize: iconSize - 1, weight: .medium)
+            .applying(.init(paletteColors: [color]))
+        return NSImage(systemSymbolName: "cpu", accessibilityDescription: "CPU")?.withSymbolConfiguration(config)
+    }
+
+    static func image(style: MenuBarStyle, heights: [Int], text: String, color: NSColor) -> NSImage {
+        let size = NSSize(width: width(style), height: h)
         guard let rep = NSBitmapImageRep(
             bitmapDataPlanes: nil, pixelsWide: Int(size.width * scale), pixelsHigh: Int(size.height * scale),
             bitsPerSample: 8, samplesPerPixel: 4, hasAlpha: true, isPlanar: false,
@@ -36,15 +65,28 @@ enum MenuBarGraph {
         rep.size = size
         NSGraphicsContext.saveGraphicsState()
         NSGraphicsContext.current = ctx
-        color.setFill()
-        let pad = barCount - heights.count
-        for (i, bh) in heights.enumerated() {
-            NSRect(x: CGFloat(pad + i) * (barW + gap), y: 0, width: barW, height: CGFloat(bh)).fill()
+        var x: CGFloat = 0
+        if style == .icon, let glyph = cpuGlyph(color: color) {
+            let g = glyph.size
+            glyph.draw(in: NSRect(x: (iconSize - g.width) / 2, y: (h - g.height) / 2, width: g.width, height: g.height))
+            x = iconSize + spacing
         }
-        if let text {
-            let s = (text as NSString).size(withAttributes: attrs)
-            (text as NSString).draw(at: NSPoint(x: graphWidth + textWidth - s.width, y: (h - s.height) / 2),
-                                    withAttributes: [.font: font, .foregroundColor: color])
+        let s = (text as NSString).size(withAttributes: attrs)
+        // Left-aligned next to the icon (no gap that grows with short values); right-aligned otherwise.
+        let tx = style == .icon ? x : x + textWidth - s.width
+        (text as NSString).draw(at: NSPoint(x: tx, y: (h - s.height) / 2), withAttributes: [.font: font, .foregroundColor: color])
+        if style == .graph {
+            let gx = textWidth + spacing
+            let pad = barCount - heights.count
+            for i in 0..<barCount {
+                let bx = gx + CGFloat(i) * (barW + gap)
+                color.withAlphaComponent(0.3).setFill()
+                NSBezierPath(roundedRect: NSRect(x: bx, y: 1, width: barW, height: h - 2), xRadius: 1, yRadius: 1).fill()
+                guard i >= pad else { continue }
+                let bh = max(2, min(h - 2, CGFloat(heights[i - pad]) / 2))
+                color.setFill()
+                NSBezierPath(roundedRect: NSRect(x: bx, y: 1, width: barW, height: bh), xRadius: 1, yRadius: 1).fill()
+            }
         }
         NSGraphicsContext.restoreGraphicsState()
         let image = NSImage(size: size)
@@ -64,7 +106,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
     private var lastDraw: CFTimeInterval = 0
     private static let minRedrawGap: CFTimeInterval = 1.5
     private let popover = NSPopover()
-    private var showsPercent = UserDefaults.standard.object(forKey: "menuBarShowsPercent") as? Bool ?? true
+    private var style = MenuBarStyle.stored
     private var defaultsObserver: NSObjectProtocol?
     private var appearanceObserver: NSKeyValueObservation?
 
@@ -79,7 +121,7 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
             button.target = self
             button.action = #selector(toggle(_:))
             button.setAccessibilityLabel("ProcLens CPU")
-            button.imagePosition = .imageOnly
+            button.imageScaling = .scaleNone  // never shrink to fit; the item sizes to its content
             // The bitmap is pre-tinted (cheaper to draw than a template), so redraw when light/dark changes.
             appearanceObserver = button.observe(\.effectiveAppearance) { [weak self] _, _ in
                 MainActor.assumeIsolated { self?.lastKey = nil; self?.lastDraw = 0; self?.refresh() }
@@ -91,17 +133,40 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         ) { [weak self] _ in
             MainActor.assumeIsolated {
                 guard let self else { return }
-                let v = UserDefaults.standard.object(forKey: "menuBarShowsPercent") as? Bool ?? true
-                if v != self.showsPercent { self.showsPercent = v; self.applyWidth(); self.refresh() }
+                let st = MenuBarStyle.stored
+                if st != self.style { self.style = st; self.applyWidth(); self.refresh() }
             }
         }
         refresh()
         track()
     }
 
+    /// Text styles use the button's own title + a template SF Symbol (native look, exact content width,
+    /// automatic light/dark/highlight). Only the graph style draws a bitmap.
+    private static let titleFont = NSFont.monospacedDigitSystemFont(ofSize: NSFont.systemFontSize, weight: .regular)
+    private static let cpuSymbol: NSImage? = {
+        let image = NSImage(systemSymbolName: "cpu", accessibilityDescription: "CPU")?
+            .withSymbolConfiguration(.init(pointSize: NSFont.systemFontSize, weight: .regular))
+        image?.isTemplate = true
+        return image
+    }()
+
     private func applyWidth() {
-        item.length = MenuBarGraph.width(showsPercent: showsPercent) + 8
+        item.length = NSStatusItem.variableLength
+        guard let button = item.button else { return }
+        switch style {
+        case .icon: button.image = Self.cpuSymbol; button.imagePosition = .imageLeading
+        case .percent: button.image = nil; button.imagePosition = .noImage
+        case .graph: button.title = ""; button.imagePosition = .imageOnly
+        }
         lastKey = nil
+    }
+
+    /// "  7%" / " 42%" / "100%" with figure spaces, so the width stays constant as the value changes.
+    private static func paddedPercent(_ fraction: Double) -> String {
+        let v = Int((min(1, max(0, fraction)) * 100).rounded())
+        let digits = String(v)
+        return String(repeating: "\u{2007}", count: max(0, 3 - digits.count)) + digits + "%"
     }
 
     private func refresh() {
@@ -110,16 +175,21 @@ final class StatusItemController: NSObject, NSPopoverDelegate {
         let now = CACurrentMediaTime()
         if lastKey != nil, now - lastDraw < Self.minRedrawGap { return }
         let values = model.history.suffix(MenuBarGraph.barCount).map { $0.cpu?.total ?? 0 }
-        let heights = MenuBarGraph.heights(values)
-        let text = showsPercent ? Format.percent(values.last ?? 0) : nil
+        let heights = style == .graph ? MenuBarGraph.heights(values) : []  // text-only styles redraw only when the % changes
+        let text = Format.percent(values.last ?? 0)
         if let k = lastKey, k.0 == heights, k.1 == text { return }
         lastKey = (heights, text)
         lastDraw = now
-        var color = NSColor.black
-        (item.button?.effectiveAppearance ?? NSApp.effectiveAppearance).performAsCurrentDrawingAppearance {
-            color = NSColor.labelColor.usingColorSpace(.deviceRGB) ?? .black
+        if style == .graph {
+            var color = NSColor.black
+            (item.button?.effectiveAppearance ?? NSApp.effectiveAppearance).performAsCurrentDrawingAppearance {
+                color = NSColor.labelColor.usingColorSpace(.deviceRGB) ?? .black
+            }
+            item.button?.image = MenuBarGraph.image(style: .graph, heights: heights, text: text, color: color)
+        } else {
+            item.button?.attributedTitle = NSAttributedString(
+                string: Self.paddedPercent(values.last ?? 0), attributes: [.font: Self.titleFont])
         }
-        item.button?.image = MenuBarGraph.image(heights: heights, text: text, color: color)
         item.button?.setAccessibilityValue(Format.percent(values.last ?? 0))
     }
 

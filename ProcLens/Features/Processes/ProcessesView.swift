@@ -29,6 +29,7 @@ struct ProcessesView: View {
         }
         .searchable(text: $vm.searchText, placement: .toolbar, prompt: "Search name, PID or path")
         .toolbar { EndTaskToolbarItem(selection: selection) }
+        .focusedSceneValue(\.selectedProcessIDs, selection)
         .navigationTitle("Processes")
         .background {
             // `visibleSnapshot` stops updating while the window is hidden/occluded: no work then.

@@ -12,7 +12,7 @@ enum AppPresentation {
 
 struct SettingsView: View {
     @Environment(AppModel.self) private var model
-    @AppStorage("menuBarShowsPercent") private var showPercent = true
+    @AppStorage(MenuBarStyle.defaultsKey) private var menuBarStyle = MenuBarStyle.icon.rawValue
     @AppStorage("showDockIcon") private var showDock = true
 
     var body: some View {
@@ -22,11 +22,14 @@ struct SettingsView: View {
                     Text("\(i.rawValue.formatted()) s").tag(i)
                 }
             }
-            Toggle("Show percentage in menu bar", isOn: $showPercent)
+            Picker("Menu bar shows", selection: $menuBarStyle) {
+                ForEach(MenuBarStyle.allCases) { Text($0.title).tag($0.rawValue) }
+            }
             Toggle("Show Dock icon", isOn: $showDock)
                 .onChange(of: showDock) { _, _ in AppPresentation.applyStoredActivationPolicy() }
             LabeledContent("Open ProcLens shortcut") { HotKeyRecorder() }
             HelperSection()
+            UpdatesSection()
         }
         .formStyle(.grouped)
         .frame(width: 400)

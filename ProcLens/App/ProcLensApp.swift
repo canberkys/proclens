@@ -16,9 +16,11 @@ struct ProcLensApp: App {
         // Sampling and the menu bar graph must not depend on the window existing (it can be closed or not yet on screen).
         model.start()
         AlertNotifier.shared.start(services: model.services)
+        _ = UpdaterController.shared  // starts Sparkle's scheduled checks
         #if DEBUG
         DispatchQueue.main.async {  // neither needs the main window (it may never appear on a locked screen)
             PanelSnapshot.scheduleIfRequested()
+            HelpDebug.scheduleIfRequested()
             DebugSnapshot.scheduleIfRequested(model: model, actions: actions)
         }
         #endif
@@ -33,7 +35,17 @@ struct ProcLensApp: App {
                 .globalHotKey()
                 .frame(minWidth: 900, minHeight: 600)
         }
-        .commands { ProcLensCommands() }
+        .commands { ProcLensCommands(model: model, actions: actions) }
+
+        Window("ProcLens Help", id: "help") {
+            HelpView()
+        }
+        .defaultSize(width: 860, height: 600)
+
+        Window("Release Notes", id: "releasenotes") {
+            ReleaseNotesView()
+        }
+        .defaultSize(width: 560, height: 480)
 
         Settings {
             SettingsView()

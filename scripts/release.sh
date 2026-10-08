@@ -16,6 +16,12 @@
 #   TEAM_ID         override the team id (default: parsed from SIGN_IDENTITY's parentheses)
 #   NOTARY_PROFILE  notarytool keychain profile (default: proclens-notary)
 #
+# Sparkle 2 (in-app updates): Sparkle.framework (embedded by Xcode at Contents/Frameworks) is signed
+# inside-out (Autoupdate, Updater.app, XPC services, framework) before the helper and the app. After the
+# DMG is notarized + stapled, `sign_update --account proclens` signs it with the EdDSA key from the login
+# keychain and appcast.xml is rewritten at the repo root (commit + push it; see docs/RELEASING.md).
+# Skipped with --skip-notarize (an unnotarized DMG must not be advertised).
+#
 # Helper signing (Phase 2+): if the bundle contains a privileged helper
 # (Contents/MacOS/ProcLensHelper or Contents/Library/LaunchServices/*), it is
 # signed before the outer app. If ProcLensHelper/Requirement.txt exists, every
@@ -38,6 +44,10 @@ APP_BUNDLE="$DERIVED_DATA/Build/Products/Release/$APP_NAME.app"
 STAGING_DIR="$RELEASE_DIR/dmg-staging"
 NOTARIZE_ZIP="$RELEASE_DIR/$APP_NAME-notarize.zip"
 DMG_TEMP="$RELEASE_DIR/$APP_NAME-temp.dmg"
+SPARKLE_ACCOUNT="proclens"
+APPCAST_PATH="$ROOT_DIR/appcast.xml"
+GITHUB_REPO="canberkys/proclens"
+SPARKLE_BIN="$DERIVED_DATA/SourcePackages/artifacts/sparkle/Sparkle/bin"
 
 SKIP_NOTARIZE=0
 DRY_RUN=0
@@ -155,6 +165,7 @@ cat <<EOF
     release dir    $RELEASE_DIR
     dmg            $DMG_PATH
     notarize       $([ "$SKIP_NOTARIZE" -eq 1 ] && echo "skipped (--skip-notarize)" || echo "yes, profile $NOTARY_PROFILE")
+    sparkle        sign nested code in Sparkle.framework; sign_update --account $SPARKLE_ACCOUNT; $([ "$SKIP_NOTARIZE" -eq 1 ] && echo "appcast skipped (--skip-notarize)" || echo "write $APPCAST_PATH")
 EOF
 
 if [ "$DRY_RUN" -eq 1 ]; then
@@ -199,6 +210,25 @@ xcodebuild -project "$PROJECT_FILE" -scheme "$SCHEME" -configuration Release \
     build
 [ -d "$APP_BUNDLE" ] || die "build did not produce $APP_BUNDLE"
 ok "built $APP_BUNDLE"
+
+# ---------- 3a. Sparkle.framework nested code, inside-out ----------
+step "Signing Sparkle.framework (inside-out)"
+SPARKLE_FW="$APP_BUNDLE/Contents/Frameworks/Sparkle.framework"
+[ -d "$SPARKLE_FW" ] || die "Sparkle.framework missing from $APP_BUNDLE/Contents/Frameworks (is the Sparkle package linked?)"
+SPARKLE_VER="$SPARKLE_FW/Versions/B"
+for item in "$SPARKLE_VER/Autoupdate" "$SPARKLE_VER/Updater.app"; do
+    [ -e "$item" ] || die "expected Sparkle component not found: ${item#"$APP_BUNDLE/"}"
+    retry codesign --force --options runtime --timestamp --sign "$SIGN_IDENTITY" "$item" \
+        || die "codesign failed for $item after 3 attempts"
+done
+for item in "$SPARKLE_VER/XPCServices/Downloader.xpc" "$SPARKLE_VER/XPCServices/Installer.xpc"; do
+    [ -e "$item" ] || die "expected Sparkle component not found: ${item#"$APP_BUNDLE/"}"
+    retry codesign --force --options runtime --timestamp --preserve-metadata=entitlements --sign "$SIGN_IDENTITY" "$item" \
+        || die "codesign failed for $item after 3 attempts"
+done
+retry codesign --force --options runtime --timestamp --sign "$SIGN_IDENTITY" "$SPARKLE_FW" \
+    || die "codesign failed for Sparkle.framework after 3 attempts"
+ok "Sparkle.framework signed"
 
 # ---------- 3b. helper: placeholder substitution, then nested signing ----------
 step "Checking for privileged helper"
@@ -368,6 +398,54 @@ else
     warn "DMG not notarized (--skip-notarize); Gatekeeper will warn on other Macs"
 fi
 
+# ---------- 5b. Sparkle: sign the DMG and write the appcast ----------
+if [ "$SKIP_NOTARIZE" -eq 0 ]; then
+    step "Signing DMG for Sparkle and writing appcast.xml"
+    SIGN_UPDATE="$SPARKLE_BIN/sign_update"
+    [ -x "$SIGN_UPDATE" ] || die "sign_update not found at $SIGN_UPDATE (Sparkle package artifacts missing)"
+    SIGNATURE_OUTPUT="$("$SIGN_UPDATE" --account "$SPARKLE_ACCOUNT" "$DMG_PATH")" \
+        || die "sign_update failed (is the '$SPARKLE_ACCOUNT' EdDSA key in the login keychain?)"
+    ED_SIGNATURE="$(printf '%s' "$SIGNATURE_OUTPUT" | grep -o 'sparkle:edSignature="[^"]*"' | cut -d'"' -f2)"
+    DMG_LENGTH="$(printf '%s' "$SIGNATURE_OUTPUT" | grep -o 'length="[^"]*"' | cut -d'"' -f2)"
+    [ -n "$ED_SIGNATURE" ] && [ -n "$DMG_LENGTH" ] || die "could not parse sign_update output"
+    BUILD_NUMBER="$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$APP_BUNDLE/Contents/Info.plist")"
+    PUB_DATE="$(LC_ALL=C date -u "+%a, %d %b %Y %H:%M:%S +0000")"
+    RELEASE_NOTES_HTML="$(python3 "$ROOT_DIR/scripts/changelog_section_html.py" "$ROOT_DIR/CHANGELOG.md" "$VERSION" 2>/dev/null)" \
+        || { warn "no CHANGELOG.md section for $VERSION; the update dialog will have no release notes"; RELEASE_NOTES_HTML=""; }
+    # Single-item feed: Sparkle only needs the latest version. sparkle:version must increase every release
+    # (CURRENT_PROJECT_VERSION in project.yml).
+    cat > "$APPCAST_PATH" <<XML
+<?xml version="1.0" encoding="utf-8"?>
+<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
+    <channel>
+        <title>$APP_NAME</title>
+        <link>https://raw.githubusercontent.com/$GITHUB_REPO/main/appcast.xml</link>
+        <description>$APP_NAME release updates</description>
+        <language>en</language>
+        <item>
+            <title>Version $VERSION</title>
+            <pubDate>$PUB_DATE</pubDate>
+            <sparkle:version>$BUILD_NUMBER</sparkle:version>
+            <sparkle:shortVersionString>$VERSION</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <description><![CDATA[
+$RELEASE_NOTES_HTML
+            ]]></description>
+            <enclosure
+                url="https://github.com/$GITHUB_REPO/releases/download/v$VERSION/$APP_NAME-$VERSION.dmg"
+                length="$DMG_LENGTH"
+                type="application/octet-stream"
+                sparkle:edSignature="$ED_SIGNATURE" />
+        </item>
+    </channel>
+</rss>
+XML
+    plutil -lint "$APPCAST_PATH" >/dev/null || die "appcast.xml is not well-formed"
+    ok "wrote $APPCAST_PATH (build $BUILD_NUMBER)"
+else
+    warn "appcast.xml not written (--skip-notarize)"
+fi
+
 # ---------- 6. summary ----------
 step "Artifacts"
 APP_SIZE="$(du -sh "$APP_BUNDLE" | cut -f1)"
@@ -380,4 +458,5 @@ printf '    sha256     : %s\n' "$DMG_SHA"
 printf '    sha file   : %s\n' "$SHA_PATH"
 echo
 echo "Next: create the GitHub release v$VERSION with the DMG, then put sha256 into Casks/proclens.rb."
+[ "$SKIP_NOTARIZE" -eq 0 ] && echo "      Then commit + push appcast.xml to main (Sparkle reads it from raw.githubusercontent.com)."
 echo "See docs/RELEASING.md."

@@ -35,6 +35,7 @@ struct DetailsView: View {
             }
             EndTaskToolbarItem(selection: selection)
         }
+        .focusedSceneValue(\.selectedProcessIDs, selection)
         .navigationTitle("Details")
         .background {
             TickDriver(model: model) { vm.rebuild(model: model) }
