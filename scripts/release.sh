@@ -445,7 +445,7 @@ $RELEASE_NOTES_HTML
     </channel>
 </rss>
 XML
-    plutil -lint "$APPCAST_PATH" >/dev/null || die "appcast.xml is not well-formed"
+    xmllint --noout "$APPCAST_PATH" || die "appcast.xml is not well-formed"
     ok "wrote $APPCAST_PATH (build $BUILD_NUMBER)"
 else
     warn "appcast.xml not written (--skip-notarize)"
