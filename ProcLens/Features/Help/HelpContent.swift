@@ -162,6 +162,7 @@ enum HelpContent {
                   blocks: [
                     .paragraph("ProcLens collects nothing and sends nothing. History and alert state stay on your Mac, and history is not even saved."),
                     .paragraph("The one exception is the update check, done by Sparkle. It fetches a small feed file hosted on GitHub when you choose Check for Updates… and automatically at most once a day; you can turn the automatic check off in Settings → Updates. Updates are signed and verified before they install, and Sparkle sends only the app name and version, no identifiers."),
+                    .paragraph("The other exception is Help → Report an Issue…. A report is sent only when you press Send, through a small relay that creates a GitHub issue in the ProcLens repository, which is public. The form shows exactly what is attached before you send: app version, macOS version, Mac model, CPU type, helper status, update speed and menu bar style. If you untick Attach diagnostics, only your title and description are sent. Process names, paths, your user or Mac name and IP addresses are never included."),
                   ]),
         HelpTopic(id: "shortcuts", title: "Keyboard shortcuts", symbol: "keyboard", color: .brown,
                   summary: "Everything you can do without the mouse.",

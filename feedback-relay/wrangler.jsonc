@@ -1,0 +1,11 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "proclens-feedback-relay",
+  "main": "src/index.js",
+  "compatibility_date": "2026-10-08",
+  // Secrets (never in this file, set via `wrangler secret put`):
+  //   GITHUB_PAT   — fine-grained PAT, canberkys/proclens only, Issues: Read and write only
+  //   CLIENT_TOKEN — shared value the ProcLens app sends as X-ProcLens-Client;
+  //                  not real security (baked into the shipped binary),
+  //                  just filters out casual/accidental hits.
+}

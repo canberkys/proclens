@@ -14,8 +14,6 @@ extension FocusedValues {
     @Entry var selectedProcessIDs: [ProcessID]?
 }
 
-private let issuesURL = URL(string: "https://github.com/canberkys/proclens/issues/new")!
-
 /// Main menu bar. Add with `.commands { ProcLensCommands(model:actions:) }` on the main `Window` scene.
 struct ProcLensCommands: Commands {
     let model: AppModel
@@ -95,7 +93,7 @@ struct ProcLensCommands: Commands {
             Button("proclens Command-Line Tool") { open("help", topic: "cli") }
             Divider()
             Button("Release Notes") { open("releasenotes") }
-            Button("Report an Issue…") { NSWorkspace.shared.open(issuesURL) }
+            Button("Report an Issue…") { open("feedback") }
         }
     }
 
