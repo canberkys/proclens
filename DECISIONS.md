@@ -11,6 +11,11 @@ Architecture decisions and code reuse log. Newest first.
 
 ---
 
+### 2026-10-08 — Automatic update check on by default
+- **Decision:** The daily update check is enabled by default and can be turned off in Settings → Updates. It runs at most once per 24 h and makes one GET request to the GitHub releases API with a `ProcLens/<version>` User-Agent. No identifiers are sent and nothing else uses the network. The manual Check for Updates… is unchanged.
+- **Why:** The product owner asked for it, so users learn about fixes without remembering to check. The SPEC §2 line is amended accordingly: it was "opt-in".
+- **Alternatives considered:** Keeping it opt-in (the original SPEC); a first-launch prompt (adds friction for one small request).
+
 ### 2026-10-08 — Own lightweight update checker instead of Sparkle; menu bar and in-app Help
 - **Decision:** Updates use `UpdateChecker` (`Features/Updates`): one `URLSession` GET of `api.github.com/repos/canberkys/proclens/releases/latest` (10 s timeout, `User-Agent: ProcLens/<version>`), compared with `CFBundleShortVersionString` through `SemanticVersion` (ProcLensCore, tested). Manual "Check for Updates…" always works; the automatic daily check is OFF by default (Settings → Updates, at most once per 24 h, on launch + hourly timer). 404 is shown as "No releases published yet". "Download" opens the release page. Also: the main menu is built in `ProcLensCommands` (⌘1…⌘7 via `WindowActions.select`, process actions via a `selectedProcessIDs` focused scene value published by Processes and Details), ⌘I and ⌘K moved from toolbar buttons to the Process menu, Help/Release Notes/Updates are `Window` scenes, Help content is Swift literals, CHANGELOG.md is bundled as a resource.
 - **Why:** No dependency and no extra bundle size (SPEC §2, bundle budget); the only network call is explicit or opt-in.

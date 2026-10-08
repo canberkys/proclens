@@ -35,7 +35,7 @@ TaskExplorer, LaunchManager): nobody combines Task Manager + process explorer
   thread (actor-based collectors). UI updates diffed — no full-table reloads.
 - Self-overhead budget: < 1% CPU, < 80 MB RAM at 1s sampling with 1,000+ processes.
   Measure it and show it in About.
-- No telemetry. No network calls except an opt-in update check.
+- No telemetry. No network calls except the update check (automatic at most once a day, on by default, can be turned off in Settings; manual Check for Updates… always available).
 - Private/undocumented APIs: only if explicitly flagged and approved, with a public fallback.
 
 ## 3. Reuse open-source code to move faster

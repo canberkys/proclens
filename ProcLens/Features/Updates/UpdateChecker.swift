@@ -49,7 +49,7 @@ final class UpdateChecker {
     }
 
     var automaticEnabled: Bool {
-        get { defaults.bool(forKey: Self.autoKey) }
+        get { defaults.object(forKey: Self.autoKey) as? Bool ?? true }  // on by default (product decision 2026-10-08)
         set {
             defaults.set(newValue, forKey: Self.autoKey)
             if newValue { startAutomatic() } else { stopAutomatic() }
@@ -83,9 +83,9 @@ final class UpdateChecker {
         }
     }
 
-    // MARK: - Automatic (off by default)
+    // MARK: - Automatic (on by default, can be turned off in Settings)
 
-    /// Call once at launch. Does nothing unless the user turned automatic checks on.
+    /// Call once at launch. Does nothing if the user turned automatic checks off.
     func startAutomatic() {
         guard automaticEnabled else { return }
         checkIfDue()
