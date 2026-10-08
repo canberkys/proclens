@@ -223,6 +223,9 @@ enum BundleIcon {
     private static var cache: [String: NSImage] = [:]
 
     static func icon(forExecutable path: String?) -> NSImage? {
+        #if DEBUG
+        if DemoMode.isActive { return DemoMode.icon(forExecutable: path) }
+        #endif
         guard let path, let range = path.range(of: ".app/") else { return nil }
         let bundle = String(path[..<range.lowerBound]) + ".app"
         if let cached = cache[bundle] { return cached }

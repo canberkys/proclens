@@ -40,6 +40,12 @@ final class ProcessActionCenter {
 
     /// Entry point for every UI surface. Destructive actions are confirmed first.
     func request(_ action: ProcessAction, on ids: [ProcessID]) {
+        #if DEBUG
+        if DemoMode.isActive, action != .copyPID {  // demo pids are fake and may collide with real processes
+            message = "Demo mode: actions are disabled."
+            return
+        }
+        #endif
         let table = model.latest?.processes?.processes ?? [:]
         let targets = ids.compactMap { id in
             table[id] ?? model.liveProcess(pid: id.pid).flatMap { $0.id == id || id.startTime == 0 ? $0 : nil }
@@ -93,6 +99,9 @@ final class ProcessActionCenter {
     /// Ends `id` and all its descendants (children first). Protected roots are refused here; protected
     /// descendants are skipped by `TreeKiller`. Always confirmed first.
     func requestEndTree(_ id: ProcessID) {
+        #if DEBUG
+        if DemoMode.isActive { message = "Demo mode: actions are disabled."; return }
+        #endif
         guard let table = model.latest?.processes ?? model.services.lastProcessTable,
               let root = table.processes[id] else {
             message = "The process is no longer running."

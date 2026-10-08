@@ -8,6 +8,7 @@ import SwiftUI
 ///   -ProcLensDetailsTree 1            start the Details tab in tree mode
 ///   -ProcLensDetailsSnapshot <png>    host the Details tab in an own window and snapshot it (needs no main window)
 ///   -ProcLensDetailsSearch <text>     initial search text
+///   -ProcLensInspectProcess <name>    (demo mode) open the inspector for the first readable demo process of that name
 ///   -ProcLensInspectSelf 1            open the inspector for ProcLens' own pid
 ///   -ProcLensInspectTab <0-4>         initial inspector tab (General, Environment, Files, Images, Signing)
 ///   -ProcLensInspectSnapshot <png>    snapshot the inspector window after a few seconds, then quit
@@ -41,7 +42,18 @@ enum DetailsDebug {
     private static func runIfRequested(model: AppModel, actions: ProcessActionCenter) async {
         let d = UserDefaults.standard
         guard !started else { return }
-        if d.bool(forKey: "ProcLensInspectSelf") {
+        if let name = d.string(forKey: "ProcLensInspectProcess"), DemoMode.isActive {
+            started = true
+            for _ in 0..<100 where model.latest?.processes == nil { try? await Task.sleep(for: .milliseconds(100)) }
+            guard let table = model.latest?.processes,
+                  let p = table.processes.values.first(where: { $0.name == name && !$0.isRestricted }) else { return }
+            InspectorWindows.shared.show(p, model: model, actions: actions)
+            if let path = d.string(forKey: "ProcLensInspectSnapshot") {
+                try? await Task.sleep(for: .seconds(4))
+                InspectorWindows.shared.snapshot(of: p.id, to: path)
+                NSApp.terminate(nil)
+            }
+        } else if d.bool(forKey: "ProcLensInspectSelf") {
             started = true
             for _ in 0..<100 where model.latest?.processes == nil { try? await Task.sleep(for: .milliseconds(100)) }
             guard let me = model.liveProcess(pid: getpid()) else { return }

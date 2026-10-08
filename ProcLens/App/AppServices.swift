@@ -12,23 +12,37 @@ final class AppServices {
     @ObservationIgnored let alerts = AlertEngine()
     @ObservationIgnored let alertStore = AlertRuleStore()
     /// Listening sockets; scanned on demand by the Ports tab and the menu bar panel.
-    @ObservationIgnored let ports = ListeningPortCollector()
+    @ObservationIgnored let ports: ListeningPortCollector
     /// launchd jobs for the Startup and Services tabs; system-domain actions go through the helper.
-    @ObservationIgnored let launchd = LaunchdService(privileged: HelperClient.shared)
+    @ObservationIgnored let launchd: LaunchdService
     @ObservationIgnored let helper = HelperClient.shared
 
     /// Latest process table seen (kept while the light sampler runs so on-demand scans still have pids).
     @ObservationIgnored private(set) var lastProcessTable: ProcessTable?
 
-    init() {
+    init(ports: ListeningPortCollector = ListeningPortCollector(),
+         launchd: LaunchdService = LaunchdService(privileged: HelperClient.shared)) {
+        self.ports = ports
+        self.launchd = launchd
         if let rules = try? alertStore.load() {
             Task { [alerts] in await alerts.setRules(rules) }
         }
     }
 
+    #if DEBUG
+    /// Demo mode: live samples wait for the synthetic back-filled hour, which must be recorded first (history ignores older times).
+    @ObservationIgnored var historyWarmup: Task<Void, Never>?
+    #endif
+
     func ingest(_ snapshot: SystemSnapshot) {
         if let table = snapshot.processes { lastProcessTable = table }
+        #if DEBUG
+        let warmup = historyWarmup
+        #endif
         Task { [history, alerts] in
+            #if DEBUG
+            await warmup?.value
+            #endif
             if snapshot.processes != nil { await history.record(snapshot) }
             _ = await alerts.evaluate(snapshot)
         }

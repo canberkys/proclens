@@ -26,11 +26,11 @@ final class AppModel {
     private(set) var isPanelOpen = false
     let protection = ProtectionPolicy()
     /// Phase 2/3 services (history, alerts, ports, launchd, helper).
-    let services = AppServices()
+    let services: AppServices
     /// Opt-in: keep sampling processes while the window is hidden (needed for per-process alerts).
     private(set) var backgroundMonitoring = UserDefaults.standard.bool(forKey: "backgroundMonitoring")
 
-    @ObservationIgnored private let processCollector = ProcessCollector(source: LiveProcessSource(), idleThrottling: true)
+    @ObservationIgnored private let processCollector: ProcessCollector
     /// Everything the window needs (processes, disk, network, GPU).
     @ObservationIgnored private let sampler: Sampler
     /// CPU + memory only: the menu bar graph and menu. Runs instead of `sampler` while the window is hidden,
@@ -43,6 +43,22 @@ final class AppModel {
     @ObservationIgnored private var workspaceObservers: [NSObjectProtocol] = []
 
     init() {
+        #if DEBUG
+        if DemoMode.isActive {  // synthetic machine: nothing below touches the real process table
+            let c = DemoMode.Collectors()
+            processCollector = ProcessCollector(source: DemoMode.processSource, idleThrottling: true)
+            lightSampler = Sampler(interval: .default, cpu: c.cpu, memory: c.memory)
+            sampler = Sampler(interval: .default, cpu: c.cpu, memory: c.memory, processes: processCollector,
+                              gpu: c.gpu, disk: c.disk, network: c.network)
+            services = DemoMode.makeServices()
+            history = DemoMode.seedGraphHistory()
+            applyRunningApps(DemoMode.runningApps)
+            observeWindowVisibility()
+            return
+        }
+        #endif
+        processCollector = ProcessCollector(source: LiveProcessSource(), idleThrottling: true)
+        services = AppServices()
         let host = LiveHostSource()
         let ioreg = LiveIORegistrySource()
         let cpu = CPUCollector(source: host)
@@ -130,6 +146,9 @@ final class AppModel {
     /// Reads one process directly from libproc (one syscall). Used by actions so they work
     /// even when the current snapshot has no process table (window hidden, light sampler).
     func liveProcess(pid: pid_t) -> ProcessSample? {
+        #if DEBUG
+        if DemoMode.isActive { return DemoWorld.sampleTable(at: DemoWorld.now).processes.values.first { $0.pid == pid } }
+        #endif
         let source = LiveProcessSource()
         guard let info = try? source.taskAllInfo(pid) else { return nil }
         return ProcessSample(id: info.processID, ppid: info.ppid, uid: info.uid, name: info.name,
@@ -140,12 +159,18 @@ final class AppModel {
 
     /// True while `id` still names the same running process (guards against pid reuse).
     func isAlive(_ id: ProcessID) -> Bool {
+        #if DEBUG
+        if DemoMode.isActive { return DemoWorld.byID[id] != nil }
+        #endif
         guard let info = try? LiveProcessSource().taskAllInfo(id.pid) else { return false }
         return info.startTime == id.startTime || info.startTime == 0
     }
 
     func icon(for pid: pid_t) -> NSImage? {
-        NSRunningApplication(processIdentifier: pid)?.icon
+        #if DEBUG
+        if DemoMode.isActive { return DemoMode.icon(forPID: pid) }
+        #endif
+        return NSRunningApplication(processIdentifier: pid)?.icon
     }
 
     // MARK: - Private
@@ -167,6 +192,10 @@ final class AppModel {
             RunningAppInfo(pid: $0.processIdentifier, bundleIdentifier: $0.bundleIdentifier,
                            localizedName: $0.localizedName, isRegular: $0.activationPolicy == .regular)
         }
+        applyRunningApps(apps)
+    }
+
+    private func applyRunningApps(_ apps: [RunningAppInfo]) {
         let fresh = Dictionary(apps.map { ($0.pid, $0) }, uniquingKeysWith: { a, _ in a })
         guard fresh != runningApps else { return }
         // Only regular apps affect grouping and row names; other launches must not invalidate view caches.
@@ -180,6 +209,9 @@ final class AppModel {
 
     /// Launch/terminate notifications come in bursts; refresh once after they settle.
     private func scheduleAppsRefresh() {
+        #if DEBUG
+        if DemoMode.isActive { return }
+        #endif
         guard !appsRefreshPending else { return }
         appsRefreshPending = true
         Task { @MainActor [weak self] in

@@ -44,8 +44,7 @@ enum PanelSnapshot {
             window.setContentSize(size)
             host.frame = NSRect(origin: .zero, size: size)
             host.layoutSubtreeIfNeeded()
-            guard let rep = host.bitmapImageRepForCachingDisplay(in: host.bounds) else { exit(2) }
-            host.cacheDisplay(in: host.bounds, to: rep)
+            guard let rep = DebugSnapshot.snapshotRep(of: host) else { exit(2) }
             try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
             exit(0)
         }

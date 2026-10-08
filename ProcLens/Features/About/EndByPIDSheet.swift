@@ -58,6 +58,9 @@ struct EndByPIDSheet: View {
     }
 
     static func userName(_ uid: uid_t) -> String {
+        #if DEBUG
+        if DemoMode.isActive { return DemoMode.userName(uid) }
+        #endif
         var pwd = passwd()
         var result: UnsafeMutablePointer<passwd>?
         var buffer = [CChar](repeating: 0, count: 1024)

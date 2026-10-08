@@ -69,6 +69,11 @@ enum LaunchdIconCache {
     }
 
     private static func resolve(_ item: LaunchdItem) -> NSImage {
+        #if DEBUG
+        if DemoMode.isActive {
+            return sized(DemoMode.icon(forExecutable: item.program) ?? NSWorkspace.shared.icon(for: .unixExecutable))
+        }
+        #endif
         let workspace = NSWorkspace.shared
         for path in [item.program, item.bundleProgram ?? ""] where !path.isEmpty {
             if let range = path.range(of: ".app/") ?? path.range(of: ".app", options: [.backwards, .anchored]) {
