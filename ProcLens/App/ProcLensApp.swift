@@ -15,6 +15,7 @@ struct ProcLensApp: App {
         AppPresentation.applyStoredActivationPolicy()
         // Sampling and the menu bar graph must not depend on the window existing (it can be closed or not yet on screen).
         model.start()
+        AlertNotifier.shared.start(services: model.services)
         #if DEBUG
         DispatchQueue.main.async {  // neither needs the main window (it may never appear on a locked screen)
             PanelSnapshot.scheduleIfRequested()
