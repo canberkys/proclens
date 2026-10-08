@@ -17,7 +17,9 @@ struct ProcLensApp: App {
         model.start()
         AlertNotifier.shared.start(services: model.services)
         _ = UpdaterController.shared  // starts Sparkle's scheduled checks
-        HelperProbe.runIfRequested(model: model)
+        #if DEBUG
+        HelperProbe.runIfRequested(model: model)  // signed Debug builds only
+        #endif
         #if DEBUG
         DispatchQueue.main.async {  // neither needs the main window (it may never appear on a locked screen)
             PanelSnapshot.scheduleIfRequested()

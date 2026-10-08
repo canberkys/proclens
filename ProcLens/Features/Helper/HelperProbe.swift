@@ -1,3 +1,4 @@
+#if DEBUG
 import Darwin
 import Foundation
 import ProcLensCore
@@ -81,3 +82,4 @@ enum HelperProbe {
         }
     }
 }
+#endif
