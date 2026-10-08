@@ -56,8 +56,10 @@ struct HistoryView: View {
         .onChange(of: hover) { _, new in
             if let new { pinned = Self.snap(new, in: chart.domain) }
         }
-        .onChange(of: percentThreshold) { Task { await reload() } }
-        .onChange(of: rateThresholdMB) { Task { await reload() } }
+        // Dragging the threshold only re-marks spikes on the points already on screen: no history
+        // reload, no new chart generation (which would also reload the top-process list) — so nothing jumps.
+        .onChange(of: percentThreshold) { chart.remarkSpikes(threshold: displayThreshold) }
+        .onChange(of: rateThresholdMB) { chart.remarkSpikes(threshold: displayThreshold) }
     }
 
     private struct Selection: Hashable {
@@ -246,6 +248,11 @@ struct HistoryView: View {
         #endif
     }
 
+    /// The spike threshold in the chart's display units (percent, or the rate scale's unit).
+    private var displayThreshold: Double {
+        metric.isPercent ? percentThreshold : rateThresholdMB * 1e6 / chart.scale.divisor
+    }
+
     /// Per-process CPU is stored as % of one core; the list shows machine share like the Processes tab.
     private var coreCount: Double { Double(max(1, model.latest?.cpu?.cores.count ?? 1)) }
 
@@ -320,6 +327,18 @@ private struct ChartData {
     var tickMinutes: Int {
         let span = domain.upperBound.timeIntervalSince(domain.lowerBound)
         return span <= 600 ? 1 : span <= 1800 ? 5 : 10
+    }
+
+    /// Recomputes spike markers from the displayed points (10 s buckets, peak per bucket) in place.
+    mutating func remarkSpikes(threshold: Double) {
+        var peaks: [Date: Point] = [:]
+        for p in points where p.value >= threshold {
+            let bucket = Date(timeIntervalSince1970: (p.date.timeIntervalSince1970 / 10).rounded(.down) * 10)
+            if let cur = peaks[bucket], cur.value >= p.value { continue }
+            peaks[bucket] = p
+        }
+        spikeDates = peaks.keys.sorted()
+        spikes = spikeDates.compactMap { peaks[$0] }.map { Spike(date: $0.date, value: $0.value) }
     }
 
     static let empty = ChartData(points: [], spikes: [], spikeDates: [],
