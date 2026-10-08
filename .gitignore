@@ -12,3 +12,7 @@ DerivedData/
 
 # Release output
 build/
+
+# Local Claude Code dev-session context — internal development notes, not
+# part of the public repository.
+CLAUDE.md
