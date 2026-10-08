@@ -25,7 +25,7 @@
 </div>
 
 <p align="center">
-  <img src=".github/screenshots/processes.png" width="800" alt="Processes tab: apps, background and system groups with a heat-map">
+  <img src=".github/screenshots/processes.png" width="720" alt="Processes tab: apps, background and system groups with a heat-map">
 </p>
 
 ---
@@ -74,9 +74,6 @@ is EdDSA-signed and notarized.
 - Memory composition (app, wired, compressed, cached) and **memory pressure**.
 - GPU utilization, disk read/write and network receive/send — all with 60-second graphs.
 
-<p align="center">
-  <img src=".github/screenshots/performance.png" width="700" alt="Performance tab: CPU graph and per-core P/E grid">
-</p>
 
 ### Details, process tree and Inspector
 - PID, parent, user, architecture (Apple / Intel via Rosetta), threads, command line,
@@ -85,21 +82,36 @@ is EdDSA-signed and notarized.
 - **Inspector** (<kbd>⌘I</kbd>) for any process: open files and sockets, loaded libraries,
   environment variables, certificate chain, hardened runtime and **entitlements**.
 
-<p align="center">
-  <img src=".github/screenshots/details-tree.png" width="800" alt="Details tab in process-tree mode">
-</p>
-<p align="center">
-  <img src=".github/screenshots/inspector.png" width="700" alt="Inspector: open files and sockets of a process">
-</p>
+<table>
+  <tr>
+    <td align="center" valign="top">
+      <img src=".github/screenshots/performance.png" width="400" alt="Performance tab: CPU graph and per-core P/E grid"><br>
+      <sub>Performance: CPU graph and per-core P/E grid</sub>
+    </td>
+    <td align="center" valign="top">
+      <img src=".github/screenshots/details-tree.png" width="400" alt="Details tab in process-tree mode"><br>
+      <sub>Details: process-tree mode</sub>
+    </td>
+  </tr>
+</table>
 
 ### Network Ports — find what's listening, and stop it
 - Every listening TCP/UDP port with its owning process, address and a *localhost only* badge.
 - **Dev-server detection** (Vite, Next.js, Astro, Python, Node, Rails, Postgres, Redis and more).
 - **Open in browser**, and **End process tree** to stop a dev server together with every worker it spawned.
 
-<p align="center">
-  <img src=".github/screenshots/ports.png" width="800" alt="Network Ports tab with dev-server detection">
-</p>
+<table>
+  <tr>
+    <td align="center" valign="top">
+      <img src=".github/screenshots/inspector.png" width="400" alt="Inspector: open files and sockets of a process"><br>
+      <sub>Inspector for a single process</sub>
+    </td>
+    <td align="center" valign="top">
+      <img src=".github/screenshots/ports.png" width="400" alt="Network Ports tab with dev-server detection"><br>
+      <sub>Network Ports with dev-server detection</sub>
+    </td>
+  </tr>
+</table>
 
 
 ### Startup and Services
@@ -107,9 +119,6 @@ is EdDSA-signed and notarized.
 - Enable / disable, start, restart and stop; view the plist. Apple's own items are hidden by default.
 - Items in the system domain carry a lock and need the [helper](#privileged-helper).
 
-<p align="center">
-  <img src=".github/screenshots/startup.png" width="800" alt="Startup tab grouped by signing developer">
-</p>
 
 
 ### History and alerts
@@ -117,9 +126,18 @@ is EdDSA-signed and notarized.
   **which processes were on top at 14:32**.
 - **Alert rules** such as *any process above 80% of a core for 60 s* → macOS notification.
 
-<p align="center">
-  <img src=".github/screenshots/history.png" width="800" alt="History tab with the top processes at a chosen moment">
-</p>
+<table>
+  <tr>
+    <td align="center" valign="top">
+      <img src=".github/screenshots/startup.png" width="400" alt="Startup tab grouped by signing developer"><br>
+      <sub>Startup, grouped by signing developer</sub>
+    </td>
+    <td align="center" valign="top">
+      <img src=".github/screenshots/history.png" width="400" alt="History tab with the top processes at a chosen moment"><br>
+      <sub>History: top processes at a chosen moment</sub>
+    </td>
+  </tr>
+</table>
 
 ### Menu bar
 - A compact CPU indicator; click it for a **quick panel** with gauges, search, the top
@@ -127,7 +145,7 @@ is EdDSA-signed and notarized.
 - Global shortcut <kbd>⌃⌥⌘P</kbd> brings up the main window; the Dock icon can be hidden.
 
 <p align="center">
-  <img src=".github/screenshots/menubar-panel.png" width="340" alt="Menu bar quick panel">
+  <img src=".github/screenshots/menubar-panel.png" width="300" alt="Menu bar quick panel">
 </p>
 
 
