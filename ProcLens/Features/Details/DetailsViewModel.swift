@@ -25,14 +25,16 @@ final class DetailsViewModel {
         static let path = 8, cmdline = 9, start = 10, sign = 11
     }
 
-    private static let restrictedTip = ProcessesViewModel.restrictedTip
+    private static var restrictedTip: String { ProcessesViewModel.restrictedTip }
     private static let dash = ProcessesViewModel.dash
     /// Values the sampler cannot read for root-owned processes.
     private static let unreadable = [Col.arch, Col.threads, Col.cpu, Col.memory, Col.cmdline, Col.sign]
-    private static let restrictedTooltips: [Int: String] =
+    private static var restrictedTooltips: [Int: String] {
         Dictionary(uniqueKeysWithValues: (unreadable + [Col.path]).map { ($0, restrictedTip) })
-    private static let cmdTooltips: [Int: String] =
+    }
+    private static var cmdTooltips: [Int: String] {
         Dictionary(uniqueKeysWithValues: unreadable.map { ($0, restrictedTip) })
+    }
     private static let sortKey = "ProcLens.details.sort"
 
     @ObservationIgnored let feed = TableFeed()
@@ -154,7 +156,7 @@ final class DetailsViewModel {
         guard let model else { return }
         for id in Set(visible).union(selected) {
             guard let p = samples[id], !p.isRestricted else { continue }
-            if cmdlines[id] == nil, cmdInFlight.insert(id).inserted {
+            if !p.viaHelper, cmdlines[id] == nil, cmdInFlight.insert(id).inserted {
                 Task { [weak self] in
                     let text: String
                     if let args = try? await model.arguments(for: id) {
@@ -245,7 +247,7 @@ final class DetailsViewModel {
     private func makeRow(_ p: ProcessSample, _ s: Static, coreCount: Double) -> TableRowData {
         let cpuTenths = Int32((p.cpu / coreCount * 1000).rounded())
         let memQ = p.memory < 1_048_576 ? p.memory : (p.memory >> 15) << 15
-        let cmd = p.isRestricted ? nil : cmdlines[p.id]
+        let cmd = p.isRestricted ? nil : (p.viaHelper ? Self.dash : cmdlines[p.id])
         let sign = p.isRestricted ? nil : p.path.flatMap { signing[$0] }
         let sig = Sig(cpuTenths: cpuTenths, memory: memQ, threads: p.threadCount, restricted: p.isRestricted,
                       ppid: p.ppid, cmd: cmd, sign: sign)

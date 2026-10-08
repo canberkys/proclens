@@ -30,7 +30,7 @@ final class AppModel {
     /// Opt-in: keep sampling processes while the window is hidden (needed for per-process alerts).
     private(set) var backgroundMonitoring = UserDefaults.standard.bool(forKey: "backgroundMonitoring")
 
-    @ObservationIgnored private let processCollector = ProcessCollector(source: LiveProcessSource(), idleThrottling: true)
+    @ObservationIgnored private let processCollector = ProcessCollector(source: LiveProcessSource(), idleThrottling: true, restricted: HelperClient.shared)
     /// Everything the window needs (processes, disk, network, GPU).
     @ObservationIgnored private let sampler: Sampler
     /// CPU + memory only: the menu bar graph and menu. Runs instead of `sampler` while the window is hidden,

@@ -16,11 +16,25 @@ final class AppServices {
     /// launchd jobs for the Startup and Services tabs; system-domain actions go through the helper.
     @ObservationIgnored let launchd = LaunchdService(privileged: HelperClient.shared)
     @ObservationIgnored let helper = HelperClient.shared
+    /// True while the privileged helper is registered and approved. Views read it (tooltips, footers); it follows
+    /// install/uninstall in Settings immediately and external changes within 30 s.
+    private(set) var helperEnabled = false {
+        didSet { ProcessesViewModel.helperEnabled = helperEnabled }
+    }
+    @ObservationIgnored private var helperPoll: Task<Void, Never>?
 
     /// Latest process table seen (kept while the light sampler runs so on-demand scans still have pids).
     @ObservationIgnored private(set) var lastProcessTable: ProcessTable?
 
     init() {
+        helperEnabled = helper.registrationStatus() == .enabled
+        ProcessesViewModel.helperEnabled = helperEnabled
+        helperPoll = Task { [weak self] in
+            while !Task.isCancelled {
+                try? await Task.sleep(for: .seconds(30))
+                self?.refreshHelperStatus()
+            }
+        }
         if let rules = try? alertStore.load() {
             Task { [alerts] in await alerts.setRules(rules) }
         }
@@ -34,9 +48,24 @@ final class AppServices {
         }
     }
 
-    /// One listening-port scan over the latest process table (~1 ms for ~1,000 processes).
+    /// Re-reads the helper registration (bypassing the 10 s cache). Cheap; called every 30 s and after Settings changes.
+    func refreshHelperStatus() {
+        let enabled = helper.registrationStatus(forceRefresh: true) == .enabled
+        if enabled != helperEnabled { helperEnabled = enabled }
+    }
+
+    /// One listening-port scan over the latest process table (~1 ms for ~1,000 processes). With the helper
+    /// enabled, one extra XPC call lists the sockets of the processes this app cannot read.
     func scanPorts() async -> [ListeningPort] {
         guard let table = lastProcessTable else { return [] }
+        if helper.isEnabled {
+            let pids = table.processes.values.filter { ($0.isRestricted || $0.viaHelper) && $0.pid > 0 }.map(\.pid)
+            if !pids.isEmpty, let sockets = try? await helper.listListeningSockets(pids: pids) {
+                await ports.setHelperPorts(ListeningPortCollector.helperPorts(from: sockets, table: table))
+            }
+        } else {
+            await ports.setHelperPorts([])
+        }
         return await ports.scan(table: table)
     }
 

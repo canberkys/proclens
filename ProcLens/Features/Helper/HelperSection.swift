@@ -35,7 +35,10 @@ struct HelperSection: View {
                     .help("Refresh status").accessibilityLabel("Refresh helper status")
             }
         }
-        .onAppear { helper.bind(model.services.helper) }
+        .onAppear {
+            helper.onChange = { [services = model.services] in services.refreshHelperStatus() }
+            helper.bind(model.services.helper)
+        }
     }
 
     private var color: Color {

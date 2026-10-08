@@ -1,5 +1,6 @@
 import AppKit
 import ProcLensCore
+import ProcLensHelperProtocol
 import SwiftUI
 
 /// Single place where process actions are validated, confirmed and executed.
@@ -29,7 +30,7 @@ final class ProcessActionCenter {
     var message: String?
 
     @ObservationIgnored private let model: AppModel
-    @ObservationIgnored private let treeKiller = TreeKiller()
+    @ObservationIgnored private let treeKiller = TreeKiller(privileged: HelperClient.shared)
 
     init(model: AppModel) {
         self.model = model
@@ -57,7 +58,7 @@ final class ProcessActionCenter {
             let urls = targets.compactMap(\.path).map { URL(fileURLWithPath: $0) }
             if !urls.isEmpty { NSWorkspace.shared.activateFileViewerSelecting(urls) }
         case .resume:
-            execute(.resume, on: targets)
+            Task { await execute(.resume, on: targets) }
         case .properties:
             for p in targets.prefix(8) { InspectorWindows.shared.show(p, model: model, actions: self) }
         case .endTree:
@@ -129,7 +130,7 @@ final class ProcessActionCenter {
     func confirm() {
         guard let pending else { return }
         self.pending = nil
-        execute(pending.action, on: pending.targets)
+        Task { [action = pending.action, targets = pending.targets] in await execute(action, on: targets) }
     }
 
     func cancel() {
@@ -138,41 +139,55 @@ final class ProcessActionCenter {
 
     // MARK: - Private
 
-    private func execute(_ action: ProcessAction, on targets: [ProcessSample]) {
+    private func execute(_ action: ProcessAction, on targets: [ProcessSample]) async {
         var failures: [String] = []
         for p in targets {
             // The pid may have been reused since the request: only act on the same process.
             guard model.isAlive(p.id) else { continue }
-            if let error = send(action, to: p) { failures.append("\(p.name) (\(p.pid)): \(error)") }
+            if let error = await send(action, to: p) { failures.append("\(p.name) (\(p.pid)): \(error)") }
         }
         if !failures.isEmpty { message = failures.joined(separator: "\n") }
     }
 
     /// Returns an error description, or nil on success.
-    private func send(_ action: ProcessAction, to p: ProcessSample) -> String? {
+    private func send(_ action: ProcessAction, to p: ProcessSample) async -> String? {
         let app = NSRunningApplication(processIdentifier: p.pid)
         switch action {
         case .quit:
             if let app, app.activationPolicy == .regular { return app.terminate() ? nil : "The app refused to quit." }
-            return signal(SIGTERM, p.pid)
+            return await signal(SIGTERM, p)
         case .forceQuit:
-            if let app { return app.forceTerminate() ? nil : signal(SIGKILL, p.pid) }
-            return signal(SIGKILL, p.pid)
+            if let app { if app.forceTerminate() { return nil }; return await signal(SIGKILL, p) }
+            return await signal(SIGKILL, p)
         case .suspend:
-            return signal(SIGSTOP, p.pid)
+            return await signal(SIGSTOP, p)
         case .resume:
-            return signal(SIGCONT, p.pid)
+            return await signal(SIGCONT, p)
         case .revealInFinder, .copyPath, .copyPID, .properties, .endTree:
             return nil
         }
     }
 
-    private func signal(_ sig: Int32, _ pid: pid_t) -> String? {
-        guard kill(pid, sig) != 0 else { return nil }
-        switch errno {
-        case EPERM: return "Not permitted. Ending processes of other users needs the helper (Phase 2)."
+    /// `kill(2)`; on EPERM, retried through the privileged helper when it is enabled (it still refuses critical
+    /// processes and checks the start time against pid reuse).
+    private func signal(_ sig: Int32, _ p: ProcessSample) async -> String? {
+        guard kill(p.pid, sig) != 0 else { return nil }
+        let err = errno
+        switch err {
+        case EPERM:
+            guard model.services.helper.isEnabled else {
+                return "Not permitted. Ending processes of other users needs the helper (Phase 2)."
+            }
+            do {
+                try await model.services.helper.signalProcess(pid: p.pid, signal: sig, expectedStartTime: p.id.startTime)
+                return nil
+            } catch let failure as HelperFailure where failure.code == .notFound || failure.code == .processChanged {
+                return nil // already gone (or replaced): the intent is satisfied
+            } catch {
+                return error.localizedDescription
+            }
         case ESRCH: return nil // already gone: the intent is satisfied
-        default: return String(cString: strerror(errno))
+        default: return String(cString: strerror(err))
         }
     }
 
