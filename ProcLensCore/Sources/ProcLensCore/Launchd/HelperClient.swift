@@ -25,7 +25,7 @@ public enum HelperClientError: Error, Sendable, Hashable, LocalizedError {
 /// Cannot be exercised end to end without a Developer ID signed app + helper that the user approved in
 /// System Settings > Login Items; the encoding and allowlist logic it relies on is unit-tested in
 /// `ProcLensHelperProtocol`.
-public actor HelperClient: PrivilegedLaunchdActions {
+public actor HelperClient: PrivilegedLaunchdActions, RestrictedProcessSource, PrivilegedSignaller {
     public static let shared = HelperClient()
 
     private var connection: NSXPCConnection?
@@ -37,23 +37,50 @@ public actor HelperClient: PrivilegedLaunchdActions {
 
     private nonisolated var service: SMAppService { SMAppService.daemon(plistName: HelperConstants.daemonPlistName) }
 
-    public nonisolated func registrationStatus() -> HelperRegistrationStatus {
-        switch service.status {
+    private nonisolated let statusCache = StatusCache()
+
+    /// `SMAppService.status` is an IPC to the system, so it is cached for `statusTTL`; `forceRefresh` bypasses the cache.
+    public nonisolated func registrationStatus(forceRefresh: Bool = false) -> HelperRegistrationStatus {
+        if !forceRefresh, let cached = statusCache.value(maxAge: Self.statusTTL) { return cached }
+        let status: HelperRegistrationStatus = switch service.status {
         case .notRegistered: .notRegistered
         case .enabled: .enabled
         case .requiresApproval: .requiresApproval
         case .notFound: .notFound
         @unknown default: .notFound
         }
+        statusCache.store(status)
+        return status
+    }
+
+    static let statusTTL: TimeInterval = 10
+
+    public nonisolated var isEnabled: Bool { registrationStatus() == .enabled }
+
+    private final class StatusCache: @unchecked Sendable {
+        private let lock = NSLock()
+        private var status: HelperRegistrationStatus?
+        private var stamp = ContinuousClock.now
+        func value(maxAge: TimeInterval) -> HelperRegistrationStatus? {
+            lock.lock(); defer { lock.unlock() }
+            guard let status, stamp.duration(to: .now) < .seconds(maxAge) else { return nil }
+            return status
+        }
+        func store(_ value: HelperRegistrationStatus) {
+            lock.lock(); defer { lock.unlock() }
+            status = value; stamp = .now
+        }
     }
 
     /// Registers the daemon. The user must then approve it in System Settings > Login Items.
     public func register() throws {
+        defer { _ = registrationStatus(forceRefresh: true) }
         try service.register()
     }
 
     public func unregister() async throws {
         invalidate()
+        defer { _ = registrationStatus(forceRefresh: true) }
         try await service.unregister()
     }
 

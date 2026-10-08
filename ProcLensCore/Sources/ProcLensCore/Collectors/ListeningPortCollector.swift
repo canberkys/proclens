@@ -1,4 +1,5 @@
 import Darwin
+import ProcLensHelperProtocol
 
 /// Enumerates listening TCP and bound UDP sockets of all accessible processes.
 ///
@@ -42,6 +43,19 @@ public actor ListeningPortCollector: Collector {
         scan(table)
     }
 
+    /// Converts the helper's socket list into `ListeningPort`s, attaching the `ProcessID` from `table`
+    /// (sockets of pids that are not in the table are dropped).
+    public static func helperPorts(from sockets: [HelperListeningSocket], table: ProcessTable) -> [ListeningPort] {
+        var ids: [pid_t: ProcessID] = [:]
+        for id in table.processes.keys { ids[id.pid] = id }
+        return sockets.compactMap { s in
+            guard let id = ids[s.pid], s.port != 0 else { return nil }
+            let loopback = s.localAddress == "::1" || s.localAddress.hasPrefix("127.")
+            return ListeningPort(port: s.port, proto: s.transport == .tcp ? .tcp : .udp, address: s.localAddress,
+                                 isLoopbackOnly: loopback, pid: s.pid, processID: id)
+        }
+    }
+
     /// On-demand scan of an explicit table.
     public func scan(table: ProcessTable) -> [ListeningPort] {
         scan(table)
@@ -58,7 +72,7 @@ public actor ListeningPortCollector: Collector {
         let ids = table.processes.keys
 
         for pid in ids {
-            guard let sample = table.processes[pid], !sample.isRestricted, sample.pid > 0 else { continue }
+            guard let sample = table.processes[pid], !sample.isRestricted, !sample.viaHelper, sample.pid > 0 else { continue }
             if let until = skipUntil[pid], until > run { continue }
 
             guard let entries = try? source.listFDs(pid: sample.pid) else {
