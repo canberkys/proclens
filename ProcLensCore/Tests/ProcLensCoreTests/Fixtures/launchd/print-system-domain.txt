@@ -1,0 +1,38 @@
+system = {
+	type = system
+	service count = 454
+	services = {
+		       0      - 	com.apple.backgroundassets.managed.relay.service
+		       0      - 	com.apple.AppleVirtualPlatform.SystemService
+		     777      - 	com.apple.bcmwlan-0x1000010b4
+		   29821      - 	com.apple.lskdd
+		    1621      - 	com.apple.kernelmanager_helper
+		     622      - 	com.apple.runningboardd
+		       0      - 	com.apple.installcoordination_proxy
+		       0      1 	com.apple.wifiFirmwareLoader
+		       0      - 	com.apple.uninstalld
+		       0      - 	com.apple.diagnosticextensions.osx.spotlight.helper
+		     732      - 	com.apple.tzlinkd
+		       0      0 	com.apple.tmp_cleaner
+		    1636      - 	com.apple.ReportSystemMemory
+		     824      - 	com.apple.assetsubscriptiond
+		       0      - 	com.apple.diagnosticextensions.osx.timemachine.helper
+		       0      - 	com.apple.kcproxy
+		     535      - 	com.apple.fseventsd
+		       0      - 	com.apple.mobile.obliteration
+		     699      - 	com.apple.security.cryptexd
+		       0      0 	com.apple.devicemanagementclient.managedeventsd
+		    1254      - 	com.apple.CoreAuthentication.daemon
+		       0      0 	com.apple.Kerberos.digest-service
+		   25796      - 	com.apple.diskimagesiod.31545647-EDAC-5C9C-8661-6E3C6AE286B7
+		     990      - 	com.example.agent.update
+		       0      0 	com.example.endpoint.proxy.boot
+		       0      - 	com.apple.systempreferences.cacheAssistant
+		   35990      0 	com.apple.XprotectFramework.PluginService
+		   14728      - 	com.apple.XProtect.daemon.scan
+		     745      - 	com.apple.filesystems.fskitd
+		     601      - 	com.apple.logd_helper
+	}
+	unmanaged processes = {
+	}
+}

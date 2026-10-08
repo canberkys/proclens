@@ -11,6 +11,10 @@ public actor Sampler {
     private let clock: ContinuousClock
     private let cpu: (any Collector<CPUSample>)?
     private let memory: (any Collector<MemorySample>)?
+    private let processes: (any Collector<ProcessTable>)?
+    private let gpu: (any Collector<GPUSample>)?
+    private let disk: (any Collector<DiskSample>)?
+    private let network: (any Collector<NetworkSample>)?
 
     private var interval: SamplingInterval
     private var history: RingBuffer<SystemSnapshot>
@@ -21,11 +25,19 @@ public actor Sampler {
         interval: SamplingInterval = .oneSecond,
         cpu: (any Collector<CPUSample>)? = nil,
         memory: (any Collector<MemorySample>)? = nil,
+        processes: (any Collector<ProcessTable>)? = nil,
+        gpu: (any Collector<GPUSample>)? = nil,
+        disk: (any Collector<DiskSample>)? = nil,
+        network: (any Collector<NetworkSample>)? = nil,
         clock: ContinuousClock = .init()
     ) {
         self.interval = interval
         self.cpu = cpu
         self.memory = memory
+        self.processes = processes
+        self.gpu = gpu
+        self.disk = disk
+        self.network = network
         self.clock = clock
         self.history = RingBuffer(capacity: Self.historyCapacity(for: interval))
         let (stream, continuation) = AsyncStream<SystemSnapshot>.makeStream(bufferingPolicy: .bufferingNewest(1))
@@ -73,6 +85,10 @@ public actor Sampler {
         for snapshot in kept.suffix(history.capacity) { history.append(snapshot) }
         await cpu?.reset()
         await memory?.reset()
+        await processes?.reset()
+        await gpu?.reset()
+        await disk?.reset()
+        await network?.reset()
         if wasRunning { start() }
     }
 
@@ -83,13 +99,24 @@ public actor Sampler {
         tick += 1
         async let cpuSample = Self.collect(cpu, tick: n, at: instant)
         async let memorySample = Self.collect(memory, tick: n, at: instant)
-        let snapshot = await SystemSnapshot(tick: n, instant: instant, cpu: cpuSample, memory: memorySample)
-        history.append(snapshot)
+        async let processTable = Self.collect(processes, tick: n, at: instant)
+        async let gpuSample = Self.collect(gpu, tick: n, at: instant)
+        async let diskSample = Self.collect(disk, tick: n, at: instant)
+        async let networkSample = Self.collect(network, tick: n, at: instant)
+        let snapshot = await SystemSnapshot(tick: n, instant: instant, cpu: cpuSample, memory: memorySample,
+                                            processes: processTable, gpu: gpuSample, disk: diskSample,
+                                            network: networkSample)
+        // History keeps system-level fields only: 60 full process tables would cost 13–17 MB
+        // and nobody reads them (per-process history lives in ProcessHistory, top-N only).
+        var light = snapshot
+        light.processes = nil
+        history.append(light)
         continuation.yield(snapshot)
         return snapshot
     }
 
     /// Up to the last 60 seconds of snapshots, oldest first.
+    /// System-level snapshots (`processes` is always nil here; see `ProcessHistory`).
     public func recentHistory() -> [SystemSnapshot] { history.elements }
 
     // MARK: - Private

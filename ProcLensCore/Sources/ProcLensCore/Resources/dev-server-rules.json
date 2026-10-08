@@ -7,10 +7,47 @@
   },
   "rules": [
     {
+      "needle": "com.docker",
+      "framework": "Docker",
+      "category": "container",
+      "confidence": 96
+    },
+    {
+      "needle": "vpnkit",
+      "framework": "Docker (vpnkit)",
+      "category": "container",
+      "confidence": 94
+    },
+    {
+      "needle": "docker-proxy",
+      "framework": "Docker port forward",
+      "category": "container",
+      "confidence": 94
+    },
+    {
+      "needle": "dockerd",
+      "framework": "Docker",
+      "category": "container",
+      "confidence": 94
+    },
+    {
+      "needle": "colima",
+      "framework": "Colima",
+      "category": "container",
+      "confidence": 90
+    },
+    {
+      "needle": "limactl",
+      "framework": "Lima",
+      "category": "container",
+      "confidence": 88
+    },
+    {
       "needle": "next",
       "framework": "Next.js",
       "category": "web",
-      "confidence": 98
+      "confidence": 98,
+      "word": true
     },
     {
       "needle": "astro",
@@ -22,7 +59,8 @@
       "needle": "vite",
       "framework": "Vite",
       "category": "web",
-      "confidence": 96
+      "confidence": 96,
+      "word": true
     },
     {
       "needle": "nuxt",
@@ -59,6 +97,80 @@
       "framework": "Parcel",
       "category": "web",
       "confidence": 90
+    },
+    {
+      "needle": "runserver",
+      "framework": "Django",
+      "category": "web",
+      "confidence": 96
+    },
+    {
+      "needle": "flask",
+      "framework": "Flask",
+      "category": "web",
+      "confidence": 92
+    },
+    {
+      "needle": "uvicorn",
+      "framework": "Uvicorn",
+      "category": "web",
+      "confidence": 94
+    },
+    {
+      "needle": "gunicorn",
+      "framework": "Gunicorn",
+      "category": "web",
+      "confidence": 94
+    },
+    {
+      "needle": "fastapi",
+      "framework": "FastAPI",
+      "category": "web",
+      "confidence": 92
+    },
+    {
+      "needle": "jupyter",
+      "framework": "Jupyter",
+      "category": "web",
+      "confidence": 90
+    },
+    {
+      "needle": "php -s",
+      "framework": "PHP built-in server",
+      "category": "web",
+      "confidence": 92
+    },
+    {
+      "needle": "hugo",
+      "framework": "Hugo",
+      "category": "web",
+      "confidence": 94,
+      "word": true
+    },
+    {
+      "needle": "jekyll",
+      "framework": "Jekyll",
+      "category": "web",
+      "confidence": 94
+    },
+    {
+      "needle": "puma",
+      "framework": "Puma",
+      "category": "web",
+      "confidence": 90,
+      "word": true
+    },
+    {
+      "needle": "storybook",
+      "framework": "Storybook",
+      "category": "web",
+      "confidence": 94
+    },
+    {
+      "needle": "cargo-watch",
+      "framework": "cargo-watch",
+      "category": "runtime",
+      "confidence": 80
     },
     {
       "needle": "supabase",
@@ -106,19 +218,22 @@
       "needle": "deno",
       "framework": "Deno",
       "category": "runtime",
-      "confidence": 82
+      "confidence": 82,
+      "word": true
     },
     {
       "needle": "bun",
       "framework": "Bun",
       "category": "runtime",
-      "confidence": 82
+      "confidence": 82,
+      "word": true
     },
     {
       "needle": "node",
       "framework": "Node.js",
       "category": "runtime",
-      "confidence": 78
+      "confidence": 78,
+      "word": true
     },
     {
       "needle": "python",
@@ -136,13 +251,15 @@
       "needle": "rails",
       "framework": "Rails",
       "category": "web",
-      "confidence": 88
+      "confidence": 88,
+      "word": true
     },
     {
       "needle": "php",
       "framework": "PHP",
       "category": "runtime",
-      "confidence": 72
+      "confidence": 72,
+      "word": true
     }
   ],
   "portFallbacks": [
@@ -199,5 +316,19 @@
   "default": {
     "label": "Unknown listener",
     "confidence": 20
-  }
+  },
+  "httpPorts": [
+    3000,
+    3001,
+    4173,
+    4200,
+    4321,
+    5000,
+    5173,
+    8000,
+    8080,
+    8081,
+    8888,
+    9000
+  ]
 }

@@ -1,0 +1,47 @@
+gui/1487936373/com.apple.Finder = {
+	active count = 7
+	path = /System/Library/LaunchAgents/com.apple.Finder.plist
+	type = LaunchAgent
+	state = not running
+	bundle id = com.apple.finder
+
+	program = /System/Library/CoreServices/Finder.app/Contents/MacOS/Finder
+	inherited environment = {
+		SSH_AUTH_SOCK => /var/run/com.apple.launchd.XXXXXXXXXX/Listeners
+	}
+
+	default environment = {
+		PATH => /usr/bin:/bin:/usr/sbin:/sbin
+	}
+
+	environment = {
+		OSLogRateLimit => 64
+		XPC_SERVICE_NAME => com.apple.Finder
+	}
+
+	domain = gui/1487936373 [100017]
+	asid = 100017
+	minimum runtime = 1
+	base minimum runtime = 1
+	exit timeout = 5
+	runs = 1
+	immediate reason = non-ipc demand
+	forks = 0
+	execs = 1
+	initialized = 1
+	trampolined = 1
+	started suspended = 0
+	proxy started suspended = 0
+	checked allocations = 0 (queried = 1)
+	checked allocations reason = no host
+	checked allocations flags = 0x0
+	last exit code = 78
+
+	semaphores = {
+		successful exit => 0
+	}
+
+	dynamic endpoints = {
+		"com.apple.DiscRecording:registrar" = {
+			port = 0x14c717
+			active = 1

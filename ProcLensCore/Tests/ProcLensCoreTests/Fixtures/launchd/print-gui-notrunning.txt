@@ -1,0 +1,40 @@
+gui/1487936373/com.apple.SafariHistoryServiceAgent = {
+	active count = 0
+	path = /System/Volumes/Preboot/Cryptexes/App/System/Library/LaunchAgents/com.apple.SafariHistoryServiceAgent.plist
+	type = LaunchAgent
+	state = not running
+
+	program = /System/Cryptexes/App/usr/libexec/SafariHistoryServiceAgent
+	inherited environment = {
+		SSH_AUTH_SOCK => /var/run/com.apple.launchd.XXXXXXXXXX/Listeners
+	}
+
+	default environment = {
+		PATH => /usr/bin:/bin:/usr/sbin:/sbin
+	}
+
+	environment = {
+		OSLogRateLimit => 64
+		MallocSpaceEfficient => 1
+		XPC_SERVICE_NAME => com.apple.SafariHistoryServiceAgent
+	}
+
+	domain = gui/1487936373 [100017]
+	asid = 100017
+	minimum runtime = 10
+	base minimum runtime = 10
+	exit timeout = 5
+	runs = 0
+	last exit code = (never exited)
+
+	event triggers = {
+		com.apple.launchd.PathState => {
+			keepalive = 0
+			service = com.apple.SafariHistoryServiceAgent
+			stream = com.apple.fsevents.matching
+			monitor = com.apple.UserEventAgent-Aqua
+			descriptor = {
+				"PathState" => {
+					"~/Library/Safari/ClearHistoryInProgress" => true
+				}
+			}

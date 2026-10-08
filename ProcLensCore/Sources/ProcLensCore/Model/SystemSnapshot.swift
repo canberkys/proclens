@@ -5,12 +5,22 @@ public struct SystemSnapshot: Sendable {
     public let instant: ContinuousClock.Instant
     public var cpu: CPUSample?
     public var memory: MemorySample?
+    public var processes: ProcessTable?
+    public var gpu: GPUSample?
+    public var disk: DiskSample?
+    public var network: NetworkSample?
 
-    public init(tick: UInt64, instant: ContinuousClock.Instant, cpu: CPUSample? = nil, memory: MemorySample? = nil) {
+    public init(tick: UInt64, instant: ContinuousClock.Instant, cpu: CPUSample? = nil, memory: MemorySample? = nil,
+                processes: ProcessTable? = nil, gpu: GPUSample? = nil, disk: DiskSample? = nil,
+                network: NetworkSample? = nil) {
         self.tick = tick
         self.instant = instant
         self.cpu = cpu
         self.memory = memory
+        self.processes = processes
+        self.gpu = gpu
+        self.disk = disk
+        self.network = network
     }
 }
 

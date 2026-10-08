@@ -68,7 +68,7 @@ Process-level collection is written from scratch on libproc.
 
 ## 4. Decisions (resolved 2026-10-08 by tech lead; see DECISIONS.md)
 
-- **D1 — Energy column:** approximate score from `rusage_info_v6` (`ri_billed_energy` delta, CPU time, wakeups), tooltip "approximation, not identical to Activity Monitor".
+- **D1 — Energy column:** approximate score `100 × cpu (cores) + 0.05 × wakeups/s` (`ri_interrupt_wkups + ri_pkg_idle_wkups`), tooltip "approximation, not identical to Activity Monitor". `ri_billed_energy` was dropped: it reads 0 for most processes.
 - **D2 — Per-process Network / GPU:** both columns ship **hidden by default and marked "Phase 2"**. No `nettop` in Phase 1 (keeps SPEC §2 intact). In Phase 2, evaluate the IORegistry `AGXDeviceUserClient` `AppUsage` route for GPU (undocumented property, flagged) and an opt-in, off-hot-path network source.
 - **D3 — Hotkey:** `sindresorhus/KeyboardShortcuts` via SPM (MIT). Added when the hotkey step starts, not in the skeleton.
 - **D4 — Services list + third-party Login Items:** on-demand parsing of `launchctl print` / `print-disabled` and `sfltool dumpbtm` (the latter through the helper). Parsers get fixture-based unit tests. Never polled.

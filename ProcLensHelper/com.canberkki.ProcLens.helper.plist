@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+	<!-- Embedded at ProcLens.app/Contents/Library/LaunchDaemons/ and registered with
+	     SMAppService.daemon(plistName: "com.canberkki.ProcLens.helper.plist"). -->
+	<key>Label</key>
+	<string>com.canberkki.ProcLens.helper</string>
+	<!-- Path relative to the app bundle. The helper binary is copied to Contents/MacOS/ProcLensHelper. -->
+	<key>BundleProgram</key>
+	<string>Contents/MacOS/ProcLensHelper</string>
+	<key>MachServices</key>
+	<dict>
+		<key>com.canberkki.ProcLens.helper</key>
+		<true/>
+	</dict>
+	<key>AssociatedBundleIdentifiers</key>
+	<array>
+		<string>com.canberkki.ProcLens</string>
+	</array>
+</dict>
+</plist>
