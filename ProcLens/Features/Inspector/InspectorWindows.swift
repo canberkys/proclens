@@ -42,8 +42,7 @@ final class InspectorWindows: NSObject, NSWindowDelegate {
     #if DEBUG
     func snapshot(of id: ProcessID, to path: String) {
         guard let view = windows[id]?.contentView?.superview ?? windows[id]?.contentView,
-              let rep = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return }
-        view.cacheDisplay(in: view.bounds, to: rep)
+              let rep = DebugSnapshot.snapshotRep(of: view) else { return }
         try? rep.representation(using: .png, properties: [:])?.write(to: URL(fileURLWithPath: path))
     }
     #endif

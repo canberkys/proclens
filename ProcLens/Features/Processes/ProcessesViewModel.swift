@@ -428,6 +428,13 @@ final class ProcessesViewModel {
     private static func quantize(_ h: Float) -> Float { (h * 20).rounded() / 20 }
 
     private static func icon(for pid: pid_t) -> NSImage? {
+        #if DEBUG
+        if DemoMode.isActive {
+            guard let img = DemoMode.icon(forPID: pid) else { return nil }
+            img.size = NSSize(width: 16, height: 16)
+            return img
+        }
+        #endif
         guard let img = NSRunningApplication(processIdentifier: pid)?.icon else { return nil }
         img.size = NSSize(width: 16, height: 16)
         return img

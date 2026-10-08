@@ -49,9 +49,17 @@ final class StartupViewModel {
         helperEnabled = services.helper.registrationStatus() == .enabled
         let snapshot = await services.launchd.snapshot()
         items = snapshot.items
+        #if DEBUG
+        if DemoMode.isActive { items = DemoLaunchd.relocated(items) }
+        #endif
         invalid = snapshot.invalid
         warnings = snapshot.warnings
-        if helperEnabled {
+        #if DEBUG
+        let useHelperItems = helperEnabled && !DemoMode.isActive
+        #else
+        let useHelperItems = helperEnabled
+        #endif
+        if useHelperItems {
             let background = (try? await services.helper.backgroundItems()) ?? []
             loginItems = background.filter { item in
                 switch item.type { case .loginItem, .app: item.developerName != "Apple"; default: false }
@@ -118,7 +126,10 @@ final class StartupViewModel {
             for item in candidates {
                 if Task.isCancelled { return }
                 guard let path = item.signablePath else { continue }
-                let status = await CodeSignatureInspector.shared.status(forPath: path)
+                #if DEBUG
+                if DemoMode.isActive, let vendor = DemoMode.signerVendor(forPath: path) { result[item.id] = vendor; continue }
+                #endif
+                let status = await SigningLookup.status(forPath: path)
                 let team: String?
                 switch status {
                 case .developerID(let t, _), .appStore(let t): team = t
@@ -126,7 +137,7 @@ final class StartupViewModel {
                 default: continue
                 }
                 if let team, let name = known[team] { result[item.id] = name; continue }
-                guard let leaf = await CodeSignatureInspector.shared.details(forPath: path)?.certificateChain.first,
+                guard let leaf = await SigningLookup.details(forPath: path)?.certificateChain.first,
                       let name = VendorGuess.vendorName(fromCertificateCommonName: leaf) else { continue }
                 if let team { known[team] = name }
                 result[item.id] = name
@@ -152,7 +163,7 @@ final class StartupViewModel {
         guard item.signing == nil, signing[item.id] == nil, let path = item.signablePath,
               signing_inflight.insert(item.id).inserted else { return }
         Task {
-            let status = await CodeSignatureInspector.shared.status(forPath: path)
+            let status = await SigningLookup.status(forPath: path)
             signing[item.id] = status
             signing_inflight.remove(item.id)
         }

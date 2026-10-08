@@ -32,7 +32,8 @@ final class HelperStatusModel {
         case .notRegistered: "Not installed"
         case .requiresApproval: "Requires approval"
         case .enabled: "Enabled"
-        case .notFound: "Not found"
+        // SMAppService reports .notFound for a daemon that was never registered, so treat it as "not installed".
+        case .notFound: "Not installed"
         }
     }
 

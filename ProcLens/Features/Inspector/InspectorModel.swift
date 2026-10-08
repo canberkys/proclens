@@ -24,13 +24,25 @@ final class InspectorModel {
     private(set) var updated: Date?
 
     @ObservationIgnored private var generation = 0
-    @ObservationIgnored private let fdInspector = FileDescriptorInspector()
-    @ObservationIgnored private let imageInspector = LoadedImagesInspector()
+    @ObservationIgnored private let fdInspector: FileDescriptorInspector
+    @ObservationIgnored private let imageInspector: LoadedImagesInspector
 
     init(sample: ProcessSample, app: AppModel) {
         self.sample = sample
         id = sample.id
         self.app = app
+        #if DEBUG
+        if DemoMode.isActive {
+            fdInspector = FileDescriptorInspector(source: DemoFDSource())
+            imageInspector = LoadedImagesInspector(source: DemoRegionSource())
+        } else {
+            fdInspector = FileDescriptorInspector()
+            imageInspector = LoadedImagesInspector()
+        }
+        #else
+        fdInspector = FileDescriptorInspector()
+        imageInspector = LoadedImagesInspector()
+        #endif
         refresh()
     }
 
@@ -76,7 +88,7 @@ final class InspectorModel {
         Task { [weak self] in
             let result: Load<SigningDetails?>
             if let path {
-                result = .loaded(await CodeSignatureInspector.shared.details(forPath: path))
+                result = .loaded(await SigningLookup.details(forPath: path))
             } else {
                 result = .failed("The executable path is not readable.", needsHelper: restricted)
             }
@@ -98,6 +110,9 @@ final class InspectorModel {
     // MARK: Derived text
 
     var userName: String {
+        #if DEBUG
+        if DemoMode.isActive { return DemoMode.userName(sample.uid) }
+        #endif
         var pwd = passwd()
         var result: UnsafeMutablePointer<passwd>?
         var buffer = [CChar](repeating: 0, count: 1024)

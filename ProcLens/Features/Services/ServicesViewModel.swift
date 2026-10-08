@@ -31,6 +31,9 @@ final class ServicesViewModel {
         helperEnabled = services.helper.registrationStatus() == .enabled
         let snapshot = await services.launchd.snapshot()
         items = snapshot.items
+        #if DEBUG
+        if DemoMode.isActive { items = DemoLaunchd.relocated(items) }
+        #endif
     }
 
     var filtered: [LaunchdItemStatus] {

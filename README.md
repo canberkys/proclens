@@ -24,6 +24,10 @@
   </p>
 </div>
 
+<p align="center">
+  <img src=".github/screenshots/processes.png" width="800" alt="Processes tab: apps, background and system groups with a heat-map">
+</p>
+
 ---
 
 ProcLens is for power users, sysadmins and developers who keep falling back to
@@ -64,6 +68,7 @@ is EdDSA-signed and notarized.
 - Every destructive action is confirmed, and critical system processes (`kernel_task`,
   `launchd`, `WindowServer`, `loginwindow`, …) are refused with a clear message.
 
+
 ### Performance
 - CPU total and **per-core grid with Performance and Efficiency cores** marked.
 - Memory composition (app, wired, compressed, cached) and **memory pressure**.
@@ -80,10 +85,21 @@ is EdDSA-signed and notarized.
 - **Inspector** (<kbd>⌘I</kbd>) for any process: open files and sockets, loaded libraries,
   environment variables, certificate chain, hardened runtime and **entitlements**.
 
+<p align="center">
+  <img src=".github/screenshots/details-tree.png" width="800" alt="Details tab in process-tree mode">
+</p>
+<p align="center">
+  <img src=".github/screenshots/inspector.png" width="700" alt="Inspector: open files and sockets of a process">
+</p>
+
 ### Network Ports — find what's listening, and stop it
 - Every listening TCP/UDP port with its owning process, address and a *localhost only* badge.
 - **Dev-server detection** (Vite, Next.js, Astro, Python, Node, Rails, Postgres, Redis and more).
 - **Open in browser**, and **End process tree** to stop a dev server together with every worker it spawned.
+
+<p align="center">
+  <img src=".github/screenshots/ports.png" width="800" alt="Network Ports tab with dev-server detection">
+</p>
 
 
 ### Startup and Services
@@ -91,16 +107,28 @@ is EdDSA-signed and notarized.
 - Enable / disable, start, restart and stop; view the plist. Apple's own items are hidden by default.
 - Items in the system domain carry a lock and need the [helper](#privileged-helper).
 
+<p align="center">
+  <img src=".github/screenshots/startup.png" width="800" alt="Startup tab grouped by signing developer">
+</p>
+
 
 ### History and alerts
 - The last hour of CPU, memory, disk, network and GPU — click any moment to see
   **which processes were on top at 14:32**.
 - **Alert rules** such as *any process above 80% of a core for 60 s* → macOS notification.
 
+<p align="center">
+  <img src=".github/screenshots/history.png" width="800" alt="History tab with the top processes at a chosen moment">
+</p>
+
 ### Menu bar
 - A compact CPU indicator; click it for a **quick panel** with gauges, search, the top
   processes (end them right there) and the dev servers that are running.
 - Global shortcut <kbd>⌃⌥⌘P</kbd> brings up the main window; the Dock icon can be hidden.
+
+<p align="center">
+  <img src=".github/screenshots/menubar-panel.png" width="340" alt="Menu bar quick panel">
+</p>
 
 
 ### Keyboard

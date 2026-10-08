@@ -293,10 +293,17 @@ private extension HistoryMetric {
         }
     }
 
+    private static var physicalMemory: Double {
+        #if DEBUG
+        if DemoMode.isActive { return DemoMode.physicalMemory }
+        #endif
+        return Double(ProcessInfo.processInfo.physicalMemory)
+    }
+
     /// Raw value that corresponds to 100%.
     var fullScale: Double {
         switch self {
-        case .memory: Double(ProcessInfo.processInfo.physicalMemory)
+        case .memory: Self.physicalMemory
         default: 1
         }
     }

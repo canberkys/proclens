@@ -170,7 +170,7 @@ final class DetailsViewModel {
             }
             if let path = p.path, signing[path] == nil, signInFlight.insert(path).inserted {
                 Task { [weak self] in
-                    let status = await CodeSignatureInspector.shared.status(forPath: path)
+                    let status = await SigningLookup.status(forPath: path)
                     guard let self else { return }
                     self.signing[path] = status.label
                     self.signInFlight.remove(path)
@@ -409,6 +409,9 @@ final class DetailsViewModel {
     }()
 
     private func userName(_ uid: uid_t) -> String {
+        #if DEBUG
+        if DemoMode.isActive { return DemoMode.userName(uid) }
+        #endif
         if let cached = userNames[uid] { return cached }
         var pwd = passwd()
         var result: UnsafeMutablePointer<passwd>?
